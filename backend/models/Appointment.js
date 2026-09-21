@@ -2,6 +2,20 @@ const mongoose = require("mongoose");
 
 const appointmentSchema = new mongoose.Schema(
   {
+    // ==========================
+    // PATIENT REFERENCE
+    // ==========================
+
+    patient: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Patient",
+      required: true,
+    },
+
+    // ==========================
+    // PATIENT DETAILS
+    // ==========================
+
     name: {
       type: String,
       required: true,
@@ -31,13 +45,18 @@ const appointmentSchema = new mongoose.Schema(
       required: true,
     },
 
+    // ==========================
+    // APPOINTMENT DETAILS
+    // ==========================
+
     department: {
       type: String,
       required: true,
     },
 
     doctor: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Doctor",
       required: true,
     },
 
@@ -56,15 +75,40 @@ const appointmentSchema = new mongoose.Schema(
       default: "",
     },
 
+    // ==========================
+    // APPOINTMENT STATUS
+    // ==========================
+
     status: {
       type: String,
       enum: [
-        "pending",
         "approved",
-        "rejected",
+        "waiting",
+        "cancelled",
         "completed",
       ],
-      default: "pending",
+      default: "approved",
+    },
+
+    // ==========================
+    // CANCELLATION DETAILS
+    // ==========================
+
+    cancelledBy: {
+      type: String,
+      enum: ["patient", "doctor", "admin", null],
+      default: null,
+    },
+
+    cancellationReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    cancelledAt: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -72,7 +116,6 @@ const appointmentSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model(
-  "Appointment",
-  appointmentSchema
-);
+module.exports =
+  mongoose.models.Appointment ||
+  mongoose.model("Appointment", appointmentSchema);

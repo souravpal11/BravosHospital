@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const Appointment = () => {
@@ -8,9 +8,17 @@ const Appointment = () => {
   // ==========================================
 
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const selectedDoctorId = searchParams.get("doctor");
   const selectedDepartment = searchParams.get("department");
+
+  // ==========================================
+  // LOGGED-IN PATIENT
+  // ==========================================
+
+  const [patient, setPatient] = useState(null);
+  const [patientLoading, setPatientLoading] = useState(true);
 
   // ==========================================
   // FORM DATA
@@ -30,11 +38,45 @@ const Appointment = () => {
   });
 
   // ==========================================
-  // DOCTORS FROM DATABASE
+  // DOCTORS
   // ==========================================
 
   const [doctors, setDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
+
+  // ==========================================
+  // LOAD LOGGED-IN PATIENT
+  // ==========================================
+
+  useEffect(() => {
+    const storedPatient = localStorage.getItem("patient");
+
+    if (!storedPatient) {
+      setPatientLoading(false);
+      return;
+    }
+
+    try {
+      const patientData = JSON.parse(storedPatient);
+
+      setPatient(patientData);
+
+      // Automatically fill patient details
+      setFormData((prev) => ({
+        ...prev,
+        name: patientData.name || "",
+        email: patientData.email || "",
+        phone: patientData.phone || "",
+        age: patientData.age || "",
+        gender: patientData.gender || "",
+      }));
+    } catch (error) {
+      console.error("Patient Data Error:", error);
+      localStorage.removeItem("patient");
+    } finally {
+      setPatientLoading(false);
+    }
+  }, []);
 
   // ==========================================
   // FETCH DOCTORS
@@ -61,7 +103,7 @@ const Appointment = () => {
   }, []);
 
   // ==========================================
-  // HANDLE INPUT CHANGE
+  // HANDLE INPUT
   // ==========================================
 
   const handleChange = (e) => {
@@ -82,13 +124,13 @@ const Appointment = () => {
 
     setFormData((prev) => ({
       ...prev,
-      department: department,
+      department,
       doctor: "",
     }));
   };
 
   // ==========================================
-  // FILTER DOCTORS BY DEPARTMENT
+  // FILTER DOCTORS
   // ==========================================
 
   const filteredDoctors = doctors.filter((doctor) => {
@@ -107,38 +149,127 @@ const Appointment = () => {
   // ==========================================
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
-      const response = await axios.post(
-        "http://localhost:5000/api/appointments",
-        formData
-      );
+  // Check patient login
+  if (!patient) {
+    alert("Please login as a patient before booking an appointment.");
+    navigate("/login");
+    return;
+  }
 
-      alert(response.data.message);
+  // Get JWT token
+  const token = localStorage.getItem("token");
 
-      // Reset form after successful booking
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        age: "",
-        gender: "",
-        department: "",
-        doctor: "",
-        date: "",
-        time: "",
-        message: "",
-      });
-    } catch (error) {
-      console.error("Appointment Error:", error);
+  if (!token) {
+    alert("Your login session has expired. Please login again.");
+    navigate("/login");
+    return;
+  }
 
-      alert(
-        error.response?.data?.message ||
-          "Unable to book appointment"
-      );
-    }
-  };
+  try {
+    // Only send appointment-related information
+    const appointmentData = {
+      department: formData.department,
+      doctor: formData.doctor,
+      date: formData.date,
+      time: formData.time,
+      message: formData.message,
+    };
+
+    const response = await axios.post(
+      "http://localhost:5000/api/appointments",
+      appointmentData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    alert(response.data.message);
+
+    // Reset appointment fields
+    setFormData((prev) => ({
+      ...prev,
+      department: "",
+      doctor: "",
+      date: "",
+      time: "",
+      message: "",
+    }));
+
+  } catch (error) {
+    console.error(
+      "Appointment Error:",
+      error.response?.data || error.message
+    );
+
+    alert(
+      error.response?.data?.message ||
+        "Unable to book appointment"
+    );
+  }
+};
+
+  // ==========================================
+  // NOT LOGGED IN
+  // ==========================================
+
+  if (!patientLoading && !patient) {
+    return (
+      <>
+        <section className="appointment-hero">
+          <div className="container text-center">
+            <h1>Book an Appointment</h1>
+
+            <p>
+              Schedule your visit with our experienced doctors
+              and get the care you deserve.
+            </p>
+          </div>
+        </section>
+
+        <section className="appointment-section py-5">
+          <div className="container">
+            <div className="row justify-content-center">
+              <div className="col-lg-7">
+                <div className="appointment-form text-center">
+
+                  <div className="mb-3">
+                    <i
+                      className="bi bi-person-lock"
+                      style={{
+                        fontSize: "50px",
+                        color: "var(--primary-teal)",
+                      }}
+                    ></i>
+                  </div>
+
+                  <h2>Login Required</h2>
+
+                  <p className="mb-4">
+                    Please login as a patient to book an
+                    appointment. Your registered patient details
+                    will be filled automatically.
+                  </p>
+
+                  <button
+                    className="btn btn-primary appointment-btn"
+                    onClick={() => navigate("/login")}
+                  >
+                    <i className="bi bi-box-arrow-in-right me-2"></i>
+                    Login as Patient
+                  </button>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </>
+    );
+  }
 
   return (
     <>
@@ -151,8 +282,8 @@ const Appointment = () => {
           <h1>Book an Appointment</h1>
 
           <p>
-            Schedule your visit with our experienced doctors and get the care
-            you deserve.
+            Schedule your visit with our experienced doctors
+            and get the care you deserve.
           </p>
         </div>
       </section>
@@ -175,33 +306,36 @@ const Appointment = () => {
                 <h2>Your Health, Our Priority</h2>
 
                 <p>
-                  Book an appointment with our expert doctors quickly and
-                  easily.
+                  Book an appointment with our expert doctors
+                  quickly and easily.
                 </p>
 
-                {/* Emergency */}
+                <div className="info-item">
+                  <i className="bi bi-person-circle"></i>
+
+                  <div>
+                    <h5>Patient</h5>
+                    <p>{patient?.name}</p>
+                  </div>
+                </div>
 
                 <div className="info-item">
                   <i className="bi bi-telephone-fill"></i>
 
                   <div>
-                    <h5>Emergency Call</h5>
-                    <p>+91 98765 43210</p>
+                    <h5>Phone</h5>
+                    <p>{patient?.phone}</p>
                   </div>
                 </div>
-
-                {/* Email */}
 
                 <div className="info-item">
                   <i className="bi bi-envelope-fill"></i>
 
                   <div>
-                    <h5>Email Us</h5>
-                    <p>hospital@email.com</p>
+                    <h5>Email</h5>
+                    <p>{patient?.email}</p>
                   </div>
                 </div>
-
-                {/* Working Hours */}
 
                 <div className="info-item">
                   <i className="bi bi-clock-fill"></i>
@@ -222,17 +356,47 @@ const Appointment = () => {
             <div className="col-lg-8">
               <div className="appointment-form">
 
-                <h2 className="mb-4">
+                <h2 className="mb-2">
                   Schedule Your Appointment
                 </h2>
+
+                <p className="text-muted mb-4">
+                  Your registered patient information has been
+                  filled automatically.
+                </p>
 
                 <form onSubmit={handleSubmit}>
 
                   <div className="row">
 
                     {/* =================================================
-                        NAME
+                        PATIENT INFORMATION
                     ================================================= */}
+
+                    <div className="col-12 mb-3">
+                      <div
+                        className="p-3 rounded"
+                        style={{
+                          background: "#f0f8f8",
+                          borderLeft:
+                            "4px solid var(--primary-teal)",
+                        }}
+                      >
+                        <div className="d-flex align-items-center">
+                          <i className="bi bi-shield-check me-2"></i>
+
+                          <strong>
+                            Patient information
+                          </strong>
+
+                          <span className="ms-2 text-muted">
+                            Automatically filled from your account
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* NAME */}
 
                     <div className="col-md-6 mb-3">
                       <label className="form-label">
@@ -244,15 +408,12 @@ const Appointment = () => {
                         className="form-control"
                         name="name"
                         value={formData.name}
-                        onChange={handleChange}
-                        placeholder="Enter your full name"
+                        readOnly
                         required
                       />
                     </div>
 
-                    {/* =================================================
-                        EMAIL
-                    ================================================= */}
+                    {/* EMAIL */}
 
                     <div className="col-md-6 mb-3">
                       <label className="form-label">
@@ -264,15 +425,12 @@ const Appointment = () => {
                         className="form-control"
                         name="email"
                         value={formData.email}
-                        onChange={handleChange}
-                        placeholder="Enter your email"
+                        readOnly
                         required
                       />
                     </div>
 
-                    {/* =================================================
-                        PHONE
-                    ================================================= */}
+                    {/* PHONE */}
 
                     <div className="col-md-6 mb-3">
                       <label className="form-label">
@@ -284,15 +442,12 @@ const Appointment = () => {
                         className="form-control"
                         name="phone"
                         value={formData.phone}
-                        onChange={handleChange}
-                        placeholder="Enter phone number"
+                        readOnly
                         required
                       />
                     </div>
 
-                    {/* =================================================
-                        AGE
-                    ================================================= */}
+                    {/* AGE */}
 
                     <div className="col-md-3 mb-3">
                       <label className="form-label">
@@ -304,46 +459,26 @@ const Appointment = () => {
                         className="form-control"
                         name="age"
                         value={formData.age}
-                        onChange={handleChange}
-                        placeholder="Age"
-                        min="1"
-                        max="120"
+                        readOnly
                         required
                       />
                     </div>
 
-                    {/* =================================================
-                        GENDER
-                    ================================================= */}
+                    {/* GENDER */}
 
                     <div className="col-md-3 mb-3">
                       <label className="form-label">
                         Gender
                       </label>
 
-                      <select
-                        className="form-select"
+                      <input
+                        type="text"
+                        className="form-control"
                         name="gender"
                         value={formData.gender}
-                        onChange={handleChange}
+                        readOnly
                         required
-                      >
-                        <option value="">
-                          Select
-                        </option>
-
-                        <option value="Male">
-                          Male
-                        </option>
-
-                        <option value="Female">
-                          Female
-                        </option>
-
-                        <option value="Other">
-                          Other
-                        </option>
-                      </select>
+                      />
                     </div>
 
                     {/* =================================================
@@ -393,7 +528,7 @@ const Appointment = () => {
                     </div>
 
                     {/* =================================================
-                        DOCTOR FROM DATABASE
+                        DOCTOR
                     ================================================= */}
 
                     <div className="col-md-6 mb-3">

@@ -1,13 +1,48 @@
-import React from "react";
-import { Link } from "react-router-dom";
-
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 const PatientDashboard = () => {
-  const patient = JSON.parse(
-  localStorage.getItem("patient")
-);
+  const patient = JSON.parse(localStorage.getItem("patient"));
 
-const patientName = patient?.name || "Patient";
+  const [upcomingAppointment, setUpcomingAppointment] = useState(null);
+  const [loadingAppointment, setLoadingAppointment] = useState(true);
+
+  const token = localStorage.getItem("token");
+
+  useEffect(() => {
+    const fetchUpcomingAppointment = async () => {
+      try {
+        if (!token) {
+          setLoadingAppointment(false);
+          return;
+        }
+
+        const response = await axios.get(
+          "http://localhost:5000/api/appointments/my-upcoming",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        setUpcomingAppointment(response.data.appointment || null);
+      } catch (error) {
+        console.error(
+          "Error fetching upcoming appointment:",
+          error.response?.data || error.message,
+        );
+        setUpcomingAppointment(null);
+      } finally {
+        setLoadingAppointment(false);
+      }
+    };
+
+    fetchUpcomingAppointment();
+  }, [token]);
+
+  const patientName = patient?.name || "Patient";
   return (
     <div className="patient-dashboard">
       {/* ================= SIDEBAR ================= */}
@@ -85,9 +120,7 @@ const patientName = patient?.name || "Patient";
             </button>
 
             <div className="patient-profile">
-              <div className="profile-avatar">
-                {patientName.charAt(0)}
-              </div>
+              <div className="profile-avatar">{patientName.charAt(0)}</div>
 
               <div className="profile-name">
                 <h6>{patientName}</h6>
@@ -184,10 +217,6 @@ const patientName = patient?.name || "Patient";
 
             <div className="col-xl-3 col-md-6">
               <div className="health-card">
-                <div className="health-icon doctor-icon">
-                  <i className="bi bi-person-heart"></i>
-                </div>
-
                 <div>
                   <span>Your Doctors</span>
                   <h3>04</h3>
@@ -213,53 +242,107 @@ const patientName = patient?.name || "Patient";
             </Link>
           </div>
 
-          <div className="appointment-card-dashboard">
-            <div className="appointment-date-box">
-              <span>SEP</span>
-              <h2>05</h2>
-              <small>2026</small>
-            </div>
-
-            <div className="appointment-details">
-              <span className="appointment-type">
-                General Consultation
-              </span>
-
-              <h4>Dr. Sourav Singh</h4>
-
-              <div className="appointment-info">
-                <span>
-                  <i className="bi bi-clock"></i>
-                  10:30 AM
-                </span>
-
-                <span>
-                  <i className="bi bi-building"></i>
-                  Bravos Hospital
-                </span>
+          {loadingAppointment ? (
+            <div className="appointment-card-dashboard">
+              <div className="w-100 text-center py-4">
+                <div className="spinner-border text-primary mb-2"></div>
+                <p className="mb-0">Loading upcoming appointment...</p>
               </div>
             </div>
+          ) : upcomingAppointment ? (
+            <div className="appointment-card-dashboard">
+              <div className="appointment-date-box">
+                <span>
+                  {new Date(upcomingAppointment.date)
+                    .toLocaleString("en-US", { month: "short" })
+                    .toUpperCase()}
+                </span>
 
-            <div className="appointment-status">
-              <span className="status-confirmed">
-                <i className="bi bi-check-circle-fill"></i>
-                Confirmed
-              </span>
+                <h2>{new Date(upcomingAppointment.date).getDate()}</h2>
 
-              <Link
-                to="/my-appointments"
-                className="appointment-manage-btn"
-              >
-                Manage Appointment
-              </Link>
+                <small>
+                  {new Date(upcomingAppointment.date).getFullYear()}
+                </small>
+              </div>
+
+              <div className="appointment-details">
+                <span className="appointment-type">
+                  {upcomingAppointment.department || "General Consultation"}
+                </span>
+
+                <h4>{upcomingAppointment.doctor?.name || "Doctor"}</h4>
+
+                <small>
+                  {upcomingAppointment.doctor?.specialization || ""}
+                </small>
+
+                <div className="appointment-info">
+                  <span>
+                    <i className="bi bi-clock"></i>
+                    {upcomingAppointment.time}
+                  </span>
+
+                  <span>
+                    <i className="bi bi-building"></i>
+                    Bravos Hospital
+                  </span>
+                </div>
+              </div>
+
+              <div className="appointment-status">
+                <span
+                  className={
+                    upcomingAppointment.status === "approved"
+                      ? "status-confirmed"
+                      : "status-pending"
+                  }
+                >
+                  <i
+                    className={
+                      upcomingAppointment.status === "approved"
+                        ? "bi bi-check-circle-fill"
+                        : "bi bi-clock-fill"
+                    }
+                  ></i>
+
+                  {upcomingAppointment.status
+                    ? upcomingAppointment.status.charAt(0).toUpperCase() +
+                      upcomingAppointment.status.slice(1)
+                    : "Pending"}
+                </span>
+
+                <Link to="/my-appointments" className="appointment-manage-btn">
+                  Manage Appointment
+                </Link>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="appointment-card-dashboard">
+              <div className="w-100 text-center py-4">
+                <div className="mb-3">
+                  <i
+                    className="bi bi-calendar-x"
+                    style={{ fontSize: "42px", opacity: 0.5 }}
+                  ></i>
+                </div>
+
+                <h5>No Upcoming Appointment</h5>
+
+                <p className="text-muted mb-3">
+                  You don't have any upcoming appointments.
+                </p>
+
+                <Link to="/appointment" className="appointment-manage-btn">
+                  Book Appointment
+                </Link>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ================= BOTTOM GRID ================= */}
 
         <div className="row g-4 dashboard-bottom">
-
           {/* QUICK ACTIONS */}
 
           <div className="col-lg-5">
@@ -269,7 +352,6 @@ const patientName = patient?.name || "Patient";
               </div>
 
               <div className="quick-actions">
-
                 <Link to="/appointment" className="quick-action">
                   <div className="quick-icon">
                     <i className="bi bi-calendar-plus"></i>
@@ -308,7 +390,6 @@ const patientName = patient?.name || "Patient";
 
                   <i className="bi bi-chevron-right"></i>
                 </Link>
-
               </div>
             </div>
           </div>
@@ -324,7 +405,6 @@ const patientName = patient?.name || "Patient";
               </div>
 
               <div className="activity-list">
-
                 <div className="activity-item">
                   <div className="activity-icon">
                     <i className="bi bi-file-earmark-plus"></i>
@@ -363,11 +443,9 @@ const patientName = patient?.name || "Patient";
 
                   <span>Aug 20</span>
                 </div>
-
               </div>
             </div>
           </div>
-
         </div>
       </main>
     </div>

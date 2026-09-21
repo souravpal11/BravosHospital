@@ -20,6 +20,7 @@ import Doctors from "./components/Doctors";
 import Services from "./components/Services";
 import Contact from "./components/Contact";
 import ForgotPassword from "./components/ForgotPassword";
+import MyAppointments from "./components/MyAppointments";
 
 // ================================
 // PUBLIC LAYOUT
@@ -128,6 +129,8 @@ function App() {
         ========================== */}
 
         <Route path="/patient-dashboard" element={<PatientDashboard />} />
+
+        <Route path="/my-appointments" element={<MyAppointments />} />
 
         {/* =========================
             DOCTOR
