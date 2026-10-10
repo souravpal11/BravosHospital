@@ -42,6 +42,13 @@ const PatientDashboard = () => {
     fetchUpcomingAppointment();
   }, [token]);
 
+  const displayString = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long',  // "Tuesday"
+    day: 'numeric',   // "29"
+    month: 'long',    // "September"
+    year: 'numeric'   // "2026"
+  });
+
   const patientName = patient?.name || "Patient";
   return (
     <div className="patient-dashboard">
@@ -106,7 +113,7 @@ const PatientDashboard = () => {
 
         <header className="dashboard-topbar">
           <div>
-            <p className="dashboard-date">Monday, 25 August 2026</p>
+            <p className="dashboard-date">{displayString}</p>
 
             <h2>
               Good Morning, <span>{patientName}</span> 👋
