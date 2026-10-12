@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import api from "../config/api";
 
 
 const MyAppointments = () => {
@@ -17,8 +17,8 @@ const MyAppointments = () => {
           return;
         }
 
-        const response = await axios.get(
-          "http://localhost:5000/api/appointments/my-appointments",
+        const response = await api.get(
+          "/api/appointments/my-appointments",
           {
             headers: {
               Authorization: `Bearer ${token}`,

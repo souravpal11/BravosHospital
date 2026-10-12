@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../config/api";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -21,8 +21,8 @@ const Contact = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/contact",
+      const response = await api.post(
+        "/api/contact",
         formData,
       );
 

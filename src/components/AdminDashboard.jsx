@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../config/api";
 
 const AdminDashboard = () => {
   const [messages, setMessages] = useState([]);
@@ -10,7 +10,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/contact");
+        const response = await api.get("/api/contact");
 
         setMessages(response.data.messages);
       } catch (error) {

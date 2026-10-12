@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../config/api";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 const ForgotPassword = () => {
@@ -48,8 +48,8 @@ const ForgotPassword = () => {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        `http://localhost:5000/api/${apiRole}/forgot-password`,
+      const response = await api.post(
+        `/api/${apiRole}/forgot-password`,
         {
           email: email.trim().toLowerCase(),
         }
@@ -98,8 +98,8 @@ const ForgotPassword = () => {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        `http://localhost:5000/api/${apiRole}/reset-password`,
+      const response = await api.post(
+        `/api/${apiRole}/reset-password`,
         {
           email: email.trim().toLowerCase(),
           otp,

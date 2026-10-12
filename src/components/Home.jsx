@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import api from "../config/api";
 import Gallery from "./Gallery";
 
 const Home = () => {
@@ -14,7 +14,7 @@ const Home = () => {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/doctors");
+        const response = await api.get("/api/doctors");
 
         // Handle both possible API responses:
         // response.data

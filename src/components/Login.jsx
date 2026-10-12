@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../config/api";
 
 const Login = () => {
   const [role, setRole] = useState("patient");
@@ -28,8 +28,8 @@ const Login = () => {
       // PATIENT LOGIN
       // =========================
       if (role === "patient") {
-        response = await axios.post(
-          "http://localhost:5000/api/patients/login",
+        response = await api.post(
+          "/api/patients/login",
           {
             email,
             password,
@@ -58,7 +58,7 @@ const Login = () => {
       // DOCTOR LOGIN
       // =========================
       else if (role === "doctor") {
-        response = await axios.post("http://localhost:5000/api/doctors/login", {
+        response = await api.post("/api/doctors/login", {
           email,
           password,
         });
@@ -80,7 +80,7 @@ const Login = () => {
           navigate("/doctor-dashboard");
         }, 800);
       } else if (role === "admin") {
-        response = await axios.post("http://localhost:5000/api/admin/login", {
+        response = await api.post("/api/admin/login", {
           email,
           password,
         });

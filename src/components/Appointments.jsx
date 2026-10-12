@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../config/api";
 
 const Appointment = () => {
   // ==========================================
@@ -85,8 +85,8 @@ const Appointment = () => {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:5000/api/doctors"
+        const response = await api.get(
+          "/api/doctors"
         );
 
         console.log("Doctors:", response.data);
@@ -177,8 +177,8 @@ const Appointment = () => {
       message: formData.message,
     };
 
-    const response = await axios.post(
-      "http://localhost:5000/api/appointments",
+    const response = await api.post(
+      "/api/appointments",
       appointmentData,
       {
         headers: {

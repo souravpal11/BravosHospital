@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../config/api";
 
 const AdminGallery = () => {
   const [title, setTitle] = useState("");
@@ -13,7 +13,7 @@ const AdminGallery = () => {
 
   const fetchImages = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/gallery");
+      const response = await api.get("/api/gallery");
 
       setImages(response.data.images || []);
     } catch (error) {
@@ -47,7 +47,7 @@ const AdminGallery = () => {
     try {
       setLoading(true);
 
-      await axios.post("http://localhost:5000/api/gallery", formData, {
+      await api.post("/api/gallery", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -80,7 +80,7 @@ const AdminGallery = () => {
     if (!confirmDelete) return;
 
     try {
-      await axios.delete(`http://localhost:5000/api/gallery/${id}`);
+      await api.delete(`/api/gallery/${id}`);
 
       fetchImages();
     } catch (error) {

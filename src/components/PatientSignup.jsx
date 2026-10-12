@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../config/api";
 
 const PatientSignup = () => {
   const navigate = useNavigate();
@@ -62,8 +62,8 @@ const PatientSignup = () => {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/patients/send-registration-otp",
+      const response = await api.post(
+        "/api/patients/send-registration-otp",
         {
           email: email.trim().toLowerCase(),
         }
@@ -108,8 +108,8 @@ const PatientSignup = () => {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/patients/verify-registration-otp",
+      const response = await api.post(
+        "/api/patients/verify-registration-otp",
         {
           email: email.trim().toLowerCase(),
           otp: otp,
@@ -180,8 +180,8 @@ const PatientSignup = () => {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/patients/register",
+      const response = await api.post(
+        "/api/patients/register",
         {
           verificationToken,
 
