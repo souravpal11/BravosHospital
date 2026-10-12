@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../config/api";
 
 
 const Gallery = () => {
@@ -9,9 +9,7 @@ const Gallery = () => {
   useEffect(() => {
     const fetchGallery = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:5000/api/gallery"
-        );
+        const response = await api.get("/api/gallery");
 
         setImages(response.data.images || []);
       } catch (error) {

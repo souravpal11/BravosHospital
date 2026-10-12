@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../config/api";
 import { Link } from "react-router-dom";
 
 const Doctors = () => {
@@ -10,7 +10,7 @@ const Doctors = () => {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/doctors");
+        const response = await api.get("/api/doctors");
 
         setDoctors(response.data.doctors || []);
       } catch (error) {
