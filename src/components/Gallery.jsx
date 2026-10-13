@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../config/api";
 
-
 const Gallery = () => {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,13 +27,10 @@ const Gallery = () => {
 
   return (
     <section className="home-gallery">
-
       <div className="container">
-
         {/* SECTION HEADER */}
 
         <div className="gallery-header">
-
           <span>BRAVOS HOSPITAL</span>
 
           <h2>
@@ -42,12 +38,10 @@ const Gallery = () => {
           </h2>
 
           <p>
-            Explore Bravos Hospital, our modern facilities,
-            caring environment and healthcare services.
+            Explore Bravos Hospital, our modern facilities, caring environment
+            and healthcare services.
           </p>
-
         </div>
-
 
         {/* SLIDESHOW */}
 
@@ -58,83 +52,57 @@ const Gallery = () => {
           data-bs-interval="5000"
           data-bs-pause="hover"
         >
-
           {/* INDICATORS */}
 
           <div className="carousel-indicators">
-
             {images.map((item, index) => (
-
               <button
                 key={item._id}
                 type="button"
                 data-bs-target="#bravosGallery"
                 data-bs-slide-to={index}
                 className={index === 0 ? "active" : ""}
-                aria-current={
-                  index === 0 ? "true" : undefined
-                }
+                aria-current={index === 0 ? "true" : undefined}
                 aria-label={`Slide ${index + 1}`}
               />
-
             ))}
-
           </div>
-
 
           {/* SLIDES */}
 
           <div className="carousel-inner">
-
             {images.map((item, index) => (
-
               <div
                 key={item._id}
-                className={`carousel-item ${
-                  index === 0 ? "active" : ""
-                }`}
+                className={`carousel-item ${index === 0 ? "active" : ""}`}
               >
-
                 <div className="gallery-slide">
-
                   <img
-                    src={`http://localhost:5000${item.image}`}
-                    alt={item.title}
+                    src={`${process.env.REACT_APP_API_URL}${item.image}`}
+                    alt={item.title || "Hospital gallery"}
+                    onError={(e) => {
+                      console.error(
+                        "Failed to load gallery image:",
+                        e.currentTarget.src,
+                      );
+                    }}
                   />
-
 
                   {/* IMAGE INFORMATION */}
 
                   <div className="gallery-slide-overlay">
-
                     <div className="gallery-slide-content">
+                      <span>{item.category}</span>
 
-                      <span>
-                        {item.category}
-                      </span>
+                      <h3>{item.title}</h3>
 
-                      <h3>
-                        {item.title}
-                      </h3>
-
-                      {item.description && (
-                        <p>
-                          {item.description}
-                        </p>
-                      )}
-
+                      {item.description && <p>{item.description}</p>}
                     </div>
-
                   </div>
-
                 </div>
-
               </div>
-
             ))}
-
           </div>
-
 
           {/* PREVIOUS */}
 
@@ -144,18 +112,13 @@ const Gallery = () => {
             data-bs-target="#bravosGallery"
             data-bs-slide="prev"
           >
-
             <span
               className="carousel-control-prev-icon"
               aria-hidden="true"
             ></span>
 
-            <span className="visually-hidden">
-              Previous
-            </span>
-
+            <span className="visually-hidden">Previous</span>
           </button>
-
 
           {/* NEXT */}
 
@@ -165,22 +128,15 @@ const Gallery = () => {
             data-bs-target="#bravosGallery"
             data-bs-slide="next"
           >
-
             <span
               className="carousel-control-next-icon"
               aria-hidden="true"
             ></span>
 
-            <span className="visually-hidden">
-              Next
-            </span>
-
+            <span className="visually-hidden">Next</span>
           </button>
-
         </div>
-
       </div>
-
     </section>
   );
 };
