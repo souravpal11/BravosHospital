@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
 import api from "../config/api";
+import getImageUrl from "../config/imageUrl";
 
 const Gallery = () => {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const API_URL = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     const fetchGallery = async () => {
@@ -80,12 +79,9 @@ const Gallery = () => {
               >
                 <div className="gallery-slide">
                   <img
-  src={`${API_URL}${item.image}`}
-  alt={item.title || "Hospital gallery"}
-  onError={(e) => {
-    console.error("Image failed to load:", e.currentTarget.src);
-  }}
-/>
+                    src={getImageUrl(item.image)}
+                    alt={item.title || "Hospital gallery"}
+                  />
 
                   {/* IMAGE INFORMATION */}
 

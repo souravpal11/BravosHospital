@@ -5,11 +5,16 @@ const API_URL = (
 export default function getImageUrl(path) {
   if (!path) return "";
 
-  // Keep complete external image URLs unchanged.
+  // External image URL
   if (/^https?:\/\//i.test(path)) {
     return path;
   }
 
-  // Use the deployed backend for uploaded images.
+  // Uploaded images served by the Render backend
+  if (!API_URL) {
+    console.error("REACT_APP_API_URL is not configured");
+    return "";
+  }
+
   return `${API_URL}/${path.replace(/^\/+/, "")}`;
 }

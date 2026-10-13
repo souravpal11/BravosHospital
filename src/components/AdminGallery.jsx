@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../config/api";
+import getImageUrl from "../config/imageUrl";
 
 const AdminGallery = () => {
   const [title, setTitle] = useState("");
@@ -207,8 +208,8 @@ const AdminGallery = () => {
                   <div className="col-md-6" key={item._id}>
                     <div className="admin-gallery-item">
                       <img
-                        src={`http://localhost:5000${item.image}`}
-                        alt={item.title}
+                        src={getImageUrl(item.image)}
+                        alt={item.title || "Hospital gallery"}
                       />
 
                       <div className="admin-gallery-item-body">
