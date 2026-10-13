@@ -5,6 +5,8 @@ const Gallery = () => {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const API_URL = process.env.REACT_APP_API_URL;
+
   useEffect(() => {
     const fetchGallery = async () => {
       try {
@@ -78,15 +80,12 @@ const Gallery = () => {
               >
                 <div className="gallery-slide">
                   <img
-                    src={`${process.env.REACT_APP_API_URL}${item.image}`}
-                    alt={item.title || "Hospital gallery"}
-                    onError={(e) => {
-                      console.error(
-                        "Failed to load gallery image:",
-                        e.currentTarget.src,
-                      );
-                    }}
-                  />
+  src={`${API_URL}${item.image}`}
+  alt={item.title || "Hospital gallery"}
+  onError={(e) => {
+    console.error("Image failed to load:", e.currentTarget.src);
+  }}
+/>
 
                   {/* IMAGE INFORMATION */}
 
