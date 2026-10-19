@@ -65,7 +65,7 @@ const Home = () => {
             <div className="hero-buttons">
               <Link className="hero-primary-btn" to="/signup">
                 <i className="bi bi-person-plus me-2"></i>
-                Get Started
+                Get Started!!
               </Link>
 
               <Link className="hero-secondary-btn" to="/about">
