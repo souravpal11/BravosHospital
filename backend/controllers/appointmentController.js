@@ -1,399 +1,502 @@
+const mongoose = require("mongoose");
 const Appointment = require("../models/Appointment");
 const Patient = require("../models/patient");
+const Doctor = require("../models/Doctor");
+const BlockedSlot = require("../models/BlockedSlot");
 
-// ==========================================
-// CREATE APPOINTMENT
-// ==========================================
+// Appointment date and time are stored as local Indian date/time strings.
+// Convert IST (UTC+05:30) to a UTC Date for comparisons.
+const getAppointmentDateTime = (date, time) => {
+  if (!date || !time || typeof date !== "string" || typeof time !== "string") {
+    return null;
+  }
 
-const createAppointment = async (req, res) => {
-  try {
-    // ==========================
-    // AUTHENTICATION
-    // ==========================
+  const dateMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeMatch = time.trim().toUpperCase().match(
+    /^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/
+  );
 
-    if (!req.user || req.user.role !== "patient") {
-      return res.status(403).json({
-        success: false,
-        message: "Please login as a patient to book an appointment",
-      });
-    }
+  if (!dateMatch || !timeMatch) return null;
 
-    // ==========================
-    // GET PATIENT
-    // ==========================
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  let hours = Number(timeMatch[1]);
+  const minutes = Number(timeMatch[2]);
+  const modifier = timeMatch[3];
 
-    const patient = await Patient.findById(req.user.id);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || minutes < 0 || minutes > 59) {
+    return null;
+  }
 
-    if (!patient) {
-      return res.status(404).json({
-        success: false,
-        message: "Patient not found",
-      });
-    }
+  if (modifier) {
+    if (hours < 1 || hours > 12) return null;
+    if (modifier === "PM" && hours !== 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+  } else if (hours < 0 || hours > 23) {
+    return null;
+  }
 
-    const {
-      department,
-      doctor,
-      date,
-      time,
-      message,
-    } = req.body;
+  const calendarDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    calendarDate.getUTCFullYear() !== year ||
+    calendarDate.getUTCMonth() !== month - 1 ||
+    calendarDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
 
-    // ==========================
-    // BASIC VALIDATION
-    // ==========================
+  return new Date(
+    Date.UTC(year, month - 1, day, hours, minutes) - 330 * 60 * 1000
+  );
+};
 
-    if (!department || !doctor || !date || !time) {
-      return res.status(400).json({
-        success: false,
-        message: "Please fill all required appointment fields",
-      });
-    }
+const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
-    // ==========================
-    // CHECK DOCTOR
-    // ==========================
+const getBlockedSlot = async (doctor, date, time) => {
+  return BlockedSlot.findOne({
+    doctor,
+    date,
+    $or: [{ time }, { time: null }, { time: { $exists: false } }],
+  });
+};
 
-    const Doctor = require("../models/Doctor");
+// Returns: available, waiting, or not_available.
+const checkSlotAvailability = async (doctor, date, time) => {
+  if (!isValidObjectId(doctor)) {
+    return {
+      availability: "not_available",
+      message: "Please select a valid doctor.",
+    };
+  }
 
-    const doctorData = await Doctor.findById(doctor);
+  const appointmentDateTime = getAppointmentDateTime(date, time);
+  if (!appointmentDateTime || appointmentDateTime <= new Date()) {
+    return {
+      availability: "not_available",
+      message: "Please select a valid future appointment date and time.",
+    };
+  }
 
-    if (!doctorData) {
-      return res.status(404).json({
-        success: false,
-        message: "Doctor not found",
-      });
-    }
+  const doctorData = await Doctor.findById(doctor);
+  if (!doctorData || !doctorData.isActive) {
+    return {
+      availability: "not_available",
+      message: "This doctor is currently unavailable.",
+    };
+  }
 
-    if (!doctorData.isActive) {
-      return res.status(400).json({
-        success: false,
-        message: "This doctor is currently unavailable",
-      });
-    }
+  const blockedSlot = await getBlockedSlot(doctor, date, time);
+  if (blockedSlot) {
+    return {
+      availability: "not_available",
+      message: blockedSlot.reason
+        ? `This slot is unavailable. Reason: ${blockedSlot.reason}`
+        : "This doctor or appointment slot is blocked.",
+    };
+  }
 
-    // ==========================
-    // CHECK BLOCKED DAY / SLOT
-    // ==========================
-
-    const BlockedSlot = require("../models/BlockedSlot");
-
-    const blocked = await BlockedSlot.findOne({
-      doctor,
-      date,
-      $or: [
-        { time: time },
-        { time: null },
-      ],
-    });
-
-    if (blocked) {
-      return res.status(409).json({
-        success: false,
-        message:
-          blocked.time
-            ? `This appointment slot is unavailable. Reason: ${blocked.reason}`
-            : `Doctor is unavailable on this date. Reason: ${blocked.reason}`,
-      });
-    }
-
-    // ==========================
-    // CHECK EXISTING APPOINTMENTS
-    // ==========================
-
-    const confirmedCount = await Appointment.countDocuments({
+  const [confirmedCount, waitingCount] = await Promise.all([
+    Appointment.countDocuments({
       doctor,
       date,
       time,
       status: "approved",
-    });
-
-    const waitingCount = await Appointment.countDocuments({
+    }),
+    Appointment.countDocuments({
       doctor,
       date,
       time,
       status: "waiting",
-    });
+    }),
+  ]);
 
-    // ==========================
-    // DETERMINE STATUS
-    // ==========================
+  if (confirmedCount < 6) {
+    return {
+      availability: "available",
+      message: "Appointment slot is available.",
+      confirmedCount,
+      waitingCount,
+    };
+  }
 
-    let appointmentStatus;
+  if (waitingCount < 1) {
+    return {
+      availability: "waiting",
+      message: "Confirmed capacity is full. You can join the waiting list.",
+      confirmedCount,
+      waitingCount,
+    };
+  }
 
-    if (confirmedCount < 6) {
-      appointmentStatus = "approved";
-    } else if (waitingCount < 1) {
-      appointmentStatus = "waiting";
-    } else {
-      return res.status(409).json({
+  return {
+    availability: "not_available",
+    message: "This appointment slot is completely full. Please select another time.",
+    confirmedCount,
+    waitingCount,
+  };
+};
+
+// Promote the earliest waiting appointment for a released confirmed slot.
+const promoteWaitingAppointment = async (doctor, date, time) => {
+  const waitingAppointment = await Appointment.findOne({
+    doctor,
+    date,
+    time,
+    status: "waiting",
+  }).sort({ createdAt: 1, _id: 1 });
+
+  if (!waitingAppointment) return null;
+
+  waitingAppointment.status = "approved";
+  await waitingAppointment.save();
+  return waitingAppointment;
+};
+
+// ==========================================
+// CHECK SLOT AVAILABILITY (PATIENT FORM)
+// ==========================================
+const getSlotAvailability = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "patient") {
+      return res.status(403).json({
         success: false,
-        message:
-          "This appointment slot is full. Please select another time.",
+        message: "Only patients can check appointment availability.",
       });
     }
 
-    // ==========================
-    // CREATE APPOINTMENT
-    // ==========================
+    const { doctor, date, time } = req.query;
+    if (!doctor || !date || !time) {
+      return res.status(400).json({
+        success: false,
+        message: "Doctor, date and time are required.",
+      });
+    }
+
+    const result = await checkSlotAvailability(doctor, date, time);
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    console.error("Slot availability error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to check slot availability.",
+    });
+  }
+};
+
+// ==========================================
+// CREATE APPOINTMENT
+// ==========================================
+const createAppointment = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "patient") {
+      return res.status(403).json({
+        success: false,
+        message: "Please login as a patient to book an appointment.",
+      });
+    }
+
+    const patient = await Patient.findById(req.user.id);
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient not found.",
+      });
+    }
+
+    const { department, doctor, date, time, message } = req.body;
+    if (!department || !doctor || !date || !time) {
+      return res.status(400).json({
+        success: false,
+        message: "Please fill all required appointment fields.",
+      });
+    }
+
+    if (!isValidObjectId(doctor)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid doctor selected.",
+      });
+    }
+
+    // Re-check on the server at the exact time of booking.
+    const slot = await checkSlotAvailability(doctor, date, time);
+
+    if (slot.availability === "not_available") {
+      return res.status(409).json({
+        success: false,
+        availability: "not_available",
+        message: slot.message,
+      });
+    }
+
+    const appointmentStatus =
+      slot.availability === "available" ? "approved" : "waiting";
 
     const appointment = await Appointment.create({
       patient: patient._id,
-
       name: patient.name,
       email: patient.email,
       phone: patient.phone,
       age: patient.age,
       gender: patient.gender,
-
       department,
       doctor,
       date,
       time,
-
       message: message || "",
-
       status: appointmentStatus,
+      attendanceStatus: "not_arrived",
     });
 
-    // ==========================
-    // RESPONSE
-    // ==========================
-
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-
+      availability: slot.availability,
       message:
         appointmentStatus === "approved"
-          ? "Appointment confirmed successfully"
-          : "You have been added to the waiting list",
-
+          ? "Appointment confirmed successfully."
+          : "Confirmed capacity is full. You have been added to the waiting list.",
       appointment,
     });
-
   } catch (error) {
-    console.error("Appointment Error:", error);
-
-    res.status(500).json({
+    console.error("Create appointment error:", error);
+    return res.status(500).json({
       success: false,
-      message: "Unable to book appointment",
+      message: "Unable to book appointment.",
       error: error.message,
     });
   }
 };
-// ==========================================
-// GET ALL APPOINTMENTS
-// ==========================================
 
+// ==========================================
+// GET APPOINTMENTS (ADMIN / ASSIGNED DOCTOR)
+// ==========================================
 const getAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.find().sort({ createdAt: -1 });
+    if (!req.user || !["admin", "doctor"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin or doctor can view all appointments.",
+      });
+    }
 
-    res.status(200).json({
-      success: true,
-      appointments,
-    });
+    const filter = {};
+    if (req.user.role === "doctor") filter.doctor = req.user.id;
+
+    const appointments = await Appointment.find(filter)
+      .populate("doctor", "name specialization")
+      .sort({ date: 1, time: 1, createdAt: 1 });
+
+    return res.status(200).json({ success: true, appointments });
   } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
+    console.error("Get appointments error:", error);
+    return res.status(500).json({
       success: false,
-      message: "Unable to fetch appointments",
+      message: "Unable to fetch appointments.",
     });
   }
 };
 
 // ==========================================
-// GET MY UPCOMING APPOINTMENT
+// GET PATIENT'S UPCOMING APPOINTMENT
 // ==========================================
-
-// ==========================================
-// GET MY UPCOMING APPOINTMENT
-// ==========================================
-
 const getMyUpcomingAppointment = async (req, res) => {
   try {
-    // Only patients
     if (!req.user || req.user.role !== "patient") {
       return res.status(403).json({
         success: false,
-        message: "Only patients can access their appointments",
+        message: "Only patients can access their appointments.",
       });
     }
 
-    const patientId = req.user.id;
-
-    // Get patient's active appointments
     const appointments = await Appointment.find({
-      patient: patientId,
-      status: { $nin: ["completed", "rejected"] },
+      patient: req.user.id,
+      status: { $in: ["approved", "waiting"] },
     })
       .populate("doctor", "name specialization qualification experience fees")
       .sort({ date: 1, time: 1 });
+
     const now = new Date();
+    const upcomingAppointment =
+      appointments.find((appointment) => {
+        const scheduled = getAppointmentDateTime(
+          appointment.date,
+          appointment.time
+        );
+        return scheduled && scheduled > now;
+      }) || null;
 
-    // Convert "10:00 AM" -> "10:00"
-    // Convert "02:00 PM" -> "14:00"
-    const convertTimeTo24Hour = (time) => {
-      if (!time) return null;
-
-      const [timePart, modifier] = time.trim().split(" ");
-
-      let [hours, minutes] = timePart.split(":");
-
-      hours = parseInt(hours, 10);
-      minutes = parseInt(minutes, 10);
-
-      if (modifier === "PM" && hours !== 12) {
-        hours += 12;
-      }
-
-      if (modifier === "AM" && hours === 12) {
-        hours = 0;
-      }
-
-      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-        2,
-        "0",
-      )}`;
-    };
-
-    // Find nearest upcoming appointment
-    const upcomingAppointment = appointments.find((appointment) => {
-      const time24 = convertTimeTo24Hour(appointment.time);
-
-      if (!time24) return false;
-
-      const appointmentDateTime = new Date(`${appointment.date}T${time24}:00`);
-
-      console.log("Appointment:", appointment.date, appointment.time);
-      console.log("Converted:", appointmentDateTime);
-      console.log("Current:", now);
-
-      return appointmentDateTime > now;
-    });
-
-    if (!upcomingAppointment) {
-      return res.status(200).json({
-        success: true,
-        appointment: null,
-      });
-    }
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       appointment: upcomingAppointment,
     });
   } catch (error) {
-    console.error("Upcoming Appointment Error:", error);
-
-    res.status(500).json({
+    console.error("Upcoming appointment error:", error);
+    return res.status(500).json({
       success: false,
-      message: "Unable to fetch upcoming appointment",
+      message: "Unable to fetch upcoming appointment.",
       error: error.message,
     });
   }
 };
-// ==========================================
-// UPDATE APPOINTMENT STATUS
-// ==========================================
 
+// ==========================================
+// UPDATE BOOKING STATUS (ADMIN ONLY)
+// Consultation completion has its own endpoint.
+// ==========================================
 const updateAppointmentStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin can change appointment booking status.",
+      });
+    }
 
-    const appointment = await Appointment.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      {
-        new: true,
-        runValidators: true,
-      },
-    );
+    const { status, reason } = req.body;
+    const allowedStatuses = ["approved", "waiting", "cancelled"];
 
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking status. Use approved, waiting or cancelled.",
+      });
+    }
+
+    const appointment = await Appointment.findById(req.params.id);
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: "Appointment not found",
+        message: "Appointment not found.",
       });
     }
 
-    res.status(200).json({
+    if (["in_consultation", "completed"].includes(appointment.attendanceStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot change the booking status of an active or completed consultation.",
+      });
+    }
+
+    const previousStatus = appointment.status;
+    appointment.status = status;
+
+    if (status === "cancelled") {
+      appointment.cancelledBy = "admin";
+      appointment.cancelledAt = new Date();
+      appointment.cancellationReason = reason || "Cancelled by hospital staff";
+    } else {
+      appointment.cancelledBy = null;
+      appointment.cancelledAt = null;
+      appointment.cancellationReason = "";
+    }
+
+    await appointment.save();
+
+    let promotedAppointment = null;
+    if (previousStatus === "approved" && status === "cancelled") {
+      promotedAppointment = await promoteWaitingAppointment(
+        appointment.doctor,
+        appointment.date,
+        appointment.time
+      );
+    }
+
+    return res.status(200).json({
       success: true,
-      message: "Appointment status updated",
+      message: "Appointment status updated successfully.",
       appointment,
+      promotedAppointment,
     });
   } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
+    console.error("Update appointment status error:", error);
+    return res.status(500).json({
       success: false,
-      message: "Unable to update appointment",
+      message: "Unable to update appointment status.",
     });
   }
 };
 
 // ==========================================
-// GET ALL MY APPOINTMENTS
+// GET ALL APPOINTMENTS FOR LOGGED-IN PATIENT
 // ==========================================
-
 const getMyAppointments = async (req, res) => {
   try {
-    // Only patients can access their appointments
     if (!req.user || req.user.role !== "patient") {
       return res.status(403).json({
         success: false,
-        message: "Only patients can access their appointments",
+        message: "Only patients can access their appointments.",
       });
     }
 
-    const patientId = req.user.id;
+    const appointments = await Appointment.find({ patient: req.user.id })
+      .populate("doctor", "name specialization qualification experience fees")
+      .sort({ date: 1, time: 1, createdAt: 1 });
 
-    const appointments = await Appointment.find({
-      patient: patientId,
-    })
-      .populate(
-        "doctor",
-        "name specialization qualification experience fees"
-      )
-      .sort({ date: 1, time: 1 });
-
-    res.status(200).json({
-      success: true,
-      appointments,
-    });
+    return res.status(200).json({ success: true, appointments });
   } catch (error) {
-    console.error("My Appointments Error:", error);
-
-    res.status(500).json({
+    console.error("My appointments error:", error);
+    return res.status(500).json({
       success: false,
-      message: "Unable to fetch your appointments",
+      message: "Unable to fetch your appointments.",
       error: error.message,
     });
   }
 };
 
+// ==========================================
+// PATIENT CANCELS OWN APPOINTMENT
+// Allowed only when >= 2 hours remain.
+// ==========================================
 const cancelMyAppointment = async (req, res) => {
   try {
     if (!req.user || req.user.role !== "patient") {
       return res.status(403).json({
         success: false,
-        message: "Only patients can cancel their appointments",
+        message: "Only patients can cancel their appointments.",
       });
     }
 
     const appointment = await Appointment.findOne({
       _id: req.params.id,
       patient: req.user.id,
-      status: {
-        $in: ["approved", "waiting"],
-      },
+      status: { $in: ["approved", "waiting"] },
     });
 
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: "Appointment not found or cannot be cancelled",
+        message: "Appointment not found or it cannot be cancelled.",
+      });
+    }
+
+    if (["in_consultation", "completed"].includes(appointment.attendanceStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "This appointment can no longer be cancelled.",
+      });
+    }
+
+    const scheduledDateTime = getAppointmentDateTime(
+      appointment.date,
+      appointment.time
+    );
+
+    if (!scheduledDateTime) {
+      return res.status(400).json({
+        success: false,
+        message: "The appointment has an invalid date or time.",
+      });
+    }
+
+    const remainingMilliseconds = scheduledDateTime.getTime() - Date.now();
+    const twoHoursMilliseconds = 2 * 60 * 60 * 1000;
+
+    // Exactly 2 hours remaining is allowed. Less than 2 hours is rejected.
+    if (remainingMilliseconds < twoHoursMilliseconds) {
+      return res.status(400).json({
+        success: false,
+        message: "Cancellation is allowed only up to 2 hours before the scheduled appointment.",
       });
     }
 
@@ -402,76 +505,73 @@ const cancelMyAppointment = async (req, res) => {
     appointment.status = "cancelled";
     appointment.cancelledBy = "patient";
     appointment.cancellationReason =
-      req.body.reason || "Cancelled by patient";
+      req.body?.reason || "Cancelled by patient";
     appointment.cancelledAt = new Date();
 
     await appointment.save();
 
-    let waitingPatient = null;
-
-    // Only an approved appointment creates a free seat
+    let promotedAppointment = null;
     if (wasApproved) {
-      waitingPatient = await Appointment.findOne({
-        doctor: appointment.doctor,
-        date: appointment.date,
-        time: appointment.time,
-        status: "waiting",
-      }).sort({ createdAt: 1 });
-
-      if (waitingPatient) {
-        waitingPatient.status = "approved";
-        await waitingPatient.save();
-      }
+      promotedAppointment = await promoteWaitingAppointment(
+        appointment.doctor,
+        appointment.date,
+        appointment.time
+      );
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: waitingPatient
-        ? "Appointment cancelled. Waiting patient has been confirmed."
+      message: promotedAppointment
+        ? "Appointment cancelled. The earliest waiting patient has been promoted."
         : "Appointment cancelled successfully.",
-      promotedAppointment: waitingPatient,
+      appointment,
+      promotedAppointment,
     });
-
   } catch (error) {
-    console.error("Cancel Appointment Error:", error);
-
-    res.status(500).json({
+    console.error("Cancel appointment error:", error);
+    return res.status(500).json({
       success: false,
-      message: "Unable to cancel appointment",
+      message: "Unable to cancel appointment.",
       error: error.message,
     });
   }
 };
 
+// ==========================================
+// BLOCK APPOINTMENT SLOT / DOCTOR DATE
+// ==========================================
 const blockAppointmentSlot = async (req, res) => {
   try {
-    if (
-      !req.user ||
-      !["doctor", "admin"].includes(req.user.role)
-    ) {
+    if (!req.user || !["doctor", "admin"].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: "Only doctors and admins can block appointment slots",
+        message: "Only doctors and admins can block appointment slots.",
       });
     }
 
-    const {
-      doctor,
-      date,
-      time,
-      reason,
-    } = req.body;
+    const { doctor, date, time, reason } = req.body;
 
     if (!doctor || !date || !reason) {
       return res.status(400).json({
         success: false,
-        message: "Doctor, date and reason are required",
+        message: "Doctor, date and reason are required.",
       });
     }
 
-    const BlockedSlot = require("../models/BlockedSlot");
+    if (!isValidObjectId(doctor)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid doctor selected.",
+      });
+    }
 
-    // Prevent duplicate block
+    if (req.user.role === "doctor" && String(req.user.id) !== String(doctor)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only block your own appointment slots.",
+      });
+    }
+
     const existingBlock = await BlockedSlot.findOne({
       doctor,
       date,
@@ -481,7 +581,7 @@ const blockAppointmentSlot = async (req, res) => {
     if (existingBlock) {
       return res.status(409).json({
         success: false,
-        message: "This slot is already blocked",
+        message: "This slot is already blocked.",
       });
     }
 
@@ -494,45 +594,286 @@ const blockAppointmentSlot = async (req, res) => {
       blockedByUser: req.user.id,
     });
 
-    // Cancel affected appointments
-    const query = {
+    const appointmentFilter = {
       doctor,
       date,
-      status: {
-        $in: ["approved", "waiting"],
-      },
+      status: { $in: ["approved", "waiting"] },
+      attendanceStatus: { $nin: ["in_consultation", "completed"] },
     };
+    if (time) appointmentFilter.time = time;
 
-    if (time) {
-      query.time = time;
+    const affected = await Appointment.find(appointmentFilter);
+
+    for (const appointment of affected) {
+      const wasApproved = appointment.status === "approved";
+      appointment.status = "cancelled";
+      appointment.cancelledBy = req.user.role;
+      appointment.cancellationReason = reason;
+      appointment.cancelledAt = new Date();
+      await appointment.save();
+
+      if (wasApproved) {
+        await promoteWaitingAppointment(
+          appointment.doctor,
+          appointment.date,
+          appointment.time
+        );
+      }
     }
 
-    await Appointment.updateMany(
-      query,
-      {
-        $set: {
-          status: "cancelled",
-          cancelledBy: req.user.role,
-          cancellationReason: reason,
-          cancelledAt: new Date(),
-        },
-      }
-    );
-
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: time
-        ? "Appointment slot blocked successfully"
-        : "Doctor's entire date blocked successfully",
+        ? "Appointment slot blocked successfully."
+        : "Doctor's entire date blocked successfully.",
       blockedSlot,
+      cancelledAppointments: affected.length,
     });
-
   } catch (error) {
-    console.error("Block Slot Error:", error);
-
-    res.status(500).json({
+    console.error("Block slot error:", error);
+    return res.status(500).json({
       success: false,
-      message: "Unable to block appointment slot",
+      message: "Unable to block appointment slot.",
+      error: error.message,
+    });
+  }
+};
+
+// ==========================================
+// ADMIN CHECKS PATIENT IN
+// ==========================================
+const markPatientAvailable = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin can check in patients.",
+      });
+    }
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found.",
+      });
+    }
+
+    if (appointment.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Only approved appointments can be checked in.",
+      });
+    }
+
+    if (["completed", "no_show", "in_consultation"].includes(appointment.attendanceStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "This appointment cannot be checked in again.",
+      });
+    }
+
+    if (!appointment.checkedInAt) appointment.checkedInAt = new Date();
+    appointment.attendanceStatus = "available";
+    appointment.attendanceUpdatedBy = "admin";
+
+    await appointment.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Patient checked in successfully.",
+      appointment,
+    });
+  } catch (error) {
+    console.error("Patient check-in error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to check in patient.",
+      error: error.message,
+    });
+  }
+};
+
+// ==========================================
+// DOCTOR STARTS CONSULTATION
+// ==========================================
+const startConsultation = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "doctor") {
+      return res.status(403).json({
+        success: false,
+        message: "Only doctors can start consultations.",
+      });
+    }
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found.",
+      });
+    }
+
+    if (String(appointment.doctor) !== String(req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only consult your assigned patients.",
+      });
+    }
+
+    if (appointment.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Only approved appointments can be started.",
+      });
+    }
+
+    if (appointment.attendanceStatus !== "available" || !appointment.checkedInAt) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin must check in the patient before consultation.",
+      });
+    }
+
+    appointment.attendanceStatus = "in_consultation";
+    appointment.consultationStartedAt = new Date();
+    appointment.attendanceUpdatedBy = "doctor";
+
+    await appointment.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Consultation started successfully.",
+      appointment,
+    });
+  } catch (error) {
+    console.error("Start consultation error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to start consultation.",
+      error: error.message,
+    });
+  }
+};
+
+// ==========================================
+// DOCTOR COMPLETES CONSULTATION
+// ==========================================
+const completeConsultation = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "doctor") {
+      return res.status(403).json({
+        success: false,
+        message: "Only doctors can complete consultations.",
+      });
+    }
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found.",
+      });
+    }
+
+    if (String(appointment.doctor) !== String(req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only complete your assigned patients.",
+      });
+    }
+
+    if (appointment.attendanceStatus !== "in_consultation") {
+      return res.status(400).json({
+        success: false,
+        message: "Consultation must be started before it can be completed.",
+      });
+    }
+
+    appointment.attendanceStatus = "completed";
+    appointment.status = "completed";
+    appointment.consultationCompletedAt = new Date();
+    appointment.attendanceUpdatedBy = "doctor";
+
+    await appointment.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Consultation completed successfully.",
+      appointment,
+    });
+  } catch (error) {
+    console.error("Complete consultation error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to complete consultation.",
+      error: error.message,
+    });
+  }
+};
+
+// ==========================================
+// GET PATIENT ARRIVAL QUEUE
+// ==========================================
+const getPatientQueue = async (req, res) => {
+  try {
+    if (!req.user || !["admin", "doctor"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin or doctor can view the patient queue.",
+      });
+    }
+
+    const { doctor, date, time } = req.query;
+    if (!doctor || !date) {
+      return res.status(400).json({
+        success: false,
+        message: "Doctor and date are required.",
+      });
+    }
+
+    if (!isValidObjectId(doctor)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid doctor selected.",
+      });
+    }
+
+    if (req.user.role === "doctor" && String(req.user.id) !== String(doctor)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own patient queue.",
+      });
+    }
+
+    const filter = {
+      doctor,
+      date,
+      status: "approved",
+      attendanceStatus: { $in: ["available", "in_consultation"] },
+      checkedInAt: { $ne: null },
+    };
+    if (time) filter.time = time;
+
+    const appointments = await Appointment.find(filter)
+      .select("name phone department doctor date time status attendanceStatus checkedInAt consultationStartedAt")
+      .sort({ checkedInAt: 1, _id: 1 });
+
+    const queue = appointments.map((appointment, index) => ({
+      ...appointment.toObject(),
+      priority: index + 1,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: queue.length,
+      queue,
+    });
+  } catch (error) {
+    console.error("Patient queue error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load patient queue.",
       error: error.message,
     });
   }
@@ -540,10 +881,15 @@ const blockAppointmentSlot = async (req, res) => {
 
 module.exports = {
   createAppointment,
+  getSlotAvailability,
   getAppointments,
   getMyUpcomingAppointment,
   getMyAppointments,
   cancelMyAppointment,
   blockAppointmentSlot,
   updateAppointmentStatus,
+  markPatientAvailable,
+  getPatientQueue,
+  startConsultation,
+  completeConsultation,
 };

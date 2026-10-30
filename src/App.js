@@ -21,6 +21,7 @@ import Services from "./components/Services";
 import Contact from "./components/Contact";
 import ForgotPassword from "./components/ForgotPassword";
 import MyAppointments from "./components/MyAppointments";
+import AppointmentQueue from "./components/AppointmentQueue";
 
 // ================================
 // PUBLIC LAYOUT
@@ -150,6 +151,8 @@ function App() {
         />
 
         <Route path="/admin/gallery" element={<AdminGallery />} />
+
+        <Route path="/appointment-queue" element={<AppointmentQueue />} />
       </Routes>
     </BrowserRouter>
   );

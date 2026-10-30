@@ -61,6 +61,13 @@ const AdminDashboard = () => {
             <span>Manage Patients</span>
           </Link>
 
+          
+<Link to="/appointment-queue" className="admin-menu-link">
+  <i className="bi bi-people-fill"></i>
+  <span>Appointment Queue</span>
+</Link>
+
+
           <Link to="/admin/appointments" className="admin-menu-link">
             <i className="bi bi-calendar-check"></i>
             <span>Appointments</span>
