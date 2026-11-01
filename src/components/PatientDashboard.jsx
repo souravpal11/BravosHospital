@@ -16,6 +16,7 @@ const PatientDashboard = () => {
   const [upcomingAppointment, setUpcomingAppointment] = useState(null);
   const [loadingAppointment, setLoadingAppointment] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardError, setDashboardError] = useState("");
 
   const token = sessionStorage.getItem("token");
 
@@ -38,6 +39,7 @@ const PatientDashboard = () => {
     const fetchUpcomingAppointment = async () => {
       try {
         if (!token) {
+          setDashboardError("No active patient session. Please log in again.");
           setLoadingAppointment(false);
           return;
         }
@@ -53,6 +55,7 @@ const PatientDashboard = () => {
           "Error fetching upcoming appointment:",
           error.response?.data || error.message,
         );
+        setDashboardError(error.response?.data?.message || "Dashboard information could not be loaded. Please sign in again or try later.");
         setUpcomingAppointment(null);
       } finally {
         setLoadingAppointment(false);
@@ -143,6 +146,7 @@ const PatientDashboard = () => {
       {/* ================= MAIN CONTENT ================= */}
 
       <main className="dashboard-main">
+        {dashboardError && <div className="alert alert-danger" role="alert">{dashboardError}</div>}
         {/* TOPBAR */}
 
         <header className="dashboard-topbar">
@@ -150,7 +154,7 @@ const PatientDashboard = () => {
             <p className="dashboard-date">{displayString}</p>
 
             <h2>
-              Good Morning, <span>{patientName}</span> 👋
+              Welcome, <span>{patientName}</span> 
             </h2>
           </div>
 
@@ -234,7 +238,7 @@ const PatientDashboard = () => {
                   <h3>
                     {loadingAppointment
                       ? "…"
-                      : (patientStats.upcomingAppointments ?? 0)}
+                      : (dashboardError ? "—" : patientStats.upcomingAppointments ?? 0)}
                   </h3>
                   <small>Upcoming visits</small>
                 </div>
@@ -276,7 +280,7 @@ const PatientDashboard = () => {
                   <h3>
                     {loadingAppointment
                       ? "…"
-                      : (patientStats.totalDoctors ?? 0)}
+                      : (dashboardError ? "—" : patientStats.totalDoctors ?? 0)}
                   </h3>
                   <small>Healthcare specialists</small>
                 </div>

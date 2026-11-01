@@ -22,8 +22,18 @@ import Contact from "./components/Contact";
 import ForgotPassword from "./components/ForgotPassword";
 import MyAppointments from "./components/MyAppointments";
 import AppointmentQueue from "./components/AppointmentQueue";
-import { MedicalRecords, Prescriptions } from "./components/ClinicalPages";
+import AdminBlockedSlots from "./components/AdminBlockedSlots";
+import ManageDoctors from "./components/ManageDoctors";
+import AdminReports from "./components/AdminReports";
 import MyProfile from "./components/MyProfile";
+import { MedicalRecords, Prescriptions } from "./components/ClinicalPages";
+import {
+  AdminPatients,
+  AdminAppointments,
+  DoctorPatients,
+  DoctorAppointments,
+} from "./components/HospitalDirectories";
+import NotFound from "./components/NotFound";
 
 // ================================
 // PUBLIC LAYOUT
@@ -99,15 +109,6 @@ function App() {
         />
 
         <Route
-          path="/appointment"
-          element={
-            <PublicLayout>
-              <Appointment />
-            </PublicLayout>
-          }
-        />
-
-        <Route
           path="/login"
           element={
             <PublicLayout>
@@ -134,27 +135,20 @@ function App() {
         <Route path="/patient-dashboard" element={<PatientDashboard />} />
 
         <Route path="/my-appointments" element={<MyAppointments />} />
-        <Route path="/medical-records" element={<MedicalRecords />} />
-        <Route path="/prescriptions" element={<Prescriptions />} />
-        <Route path="/profile" element={<MyProfile />} />
+
+        <Route path="/appointment" element={<Appointment />} />
 
         {/* =========================
             DOCTOR
         ========================== */}
 
         <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
-        <Route path="/doctor/records" element={<MedicalRecords />} />
-        <Route path="/doctor/prescriptions" element={<Prescriptions />} />
-        <Route path="/doctor/profile" element={<MyProfile />} />
 
         {/* =========================
             ADMIN
         ========================== */}
 
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/records" element={<MedicalRecords />} />
-        <Route path="/admin/prescriptions" element={<Prescriptions />} />
-        <Route path="/admin/profile" element={<MyProfile />} />
 
         <Route
           path="/admin/register-doctor"
@@ -163,7 +157,28 @@ function App() {
 
         <Route path="/admin/gallery" element={<AdminGallery />} />
 
+        <Route path="/admin/blocked-slots" element={<AdminBlockedSlots />} />
+        <Route path="/admin/doctors" element={<ManageDoctors />} />
+        <Route path="/admin/patients" element={<AdminPatients />} />
+        <Route path="/admin/appointments" element={<AdminAppointments />} />
+        <Route path="/admin/records" element={<MedicalRecords />} />
+        <Route path="/admin/reports" element={<AdminReports />} />
+        <Route path="/admin/profile" element={<MyProfile />} />
+
+        {/* Doctor portal pages */}
+        <Route path="/doctor/appointments" element={<DoctorAppointments />} />
+        <Route path="/doctor/patients" element={<DoctorPatients />} />
+        <Route path="/doctor/records" element={<MedicalRecords />} />
+        <Route path="/doctor/prescriptions" element={<Prescriptions />} />
+        <Route path="/doctor/profile" element={<MyProfile />} />
+
+        {/* Patient portal pages */}
+        <Route path="/medical-records" element={<MedicalRecords />} />
+        <Route path="/prescriptions" element={<Prescriptions />} />
+        <Route path="/profile" element={<MyProfile />} />
+
         <Route path="/appointment-queue" element={<AppointmentQueue />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

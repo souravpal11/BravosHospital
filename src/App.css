@@ -12446,3 +12446,12 @@
     padding: 15px;
   }
 }
+
+
+.back-dashboard-btn{
+  background: #eaf4ff;
+}
+
+.back-dashboard-btn:hover{
+  background: #118c88;
+}

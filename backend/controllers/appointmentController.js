@@ -53,12 +53,37 @@ const getAppointmentDateTime = (date, time) => {
 
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
+const timeToMinutes = (value) => {
+  if (!value || typeof value !== "string") return null;
+  const match = value.trim().toUpperCase().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/);
+  if (!match) return null;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (minutes > 59) return null;
+  if (match[3]) {
+    if (hours < 1 || hours > 12) return null;
+    if (match[3] === "PM" && hours !== 12) hours += 12;
+    if (match[3] === "AM" && hours === 12) hours = 0;
+  } else if (hours > 23) return null;
+  return hours * 60 + minutes;
+};
+
 const getBlockedSlot = async (doctor, date, time) => {
-  return BlockedSlot.findOne({
-    doctor,
-    date,
-    $or: [{ time }, { time: null }, { time: { $exists: false } }],
-  });
+  const appointmentMinutes = timeToMinutes(time);
+  const blocks = await BlockedSlot.find({ doctor, date });
+  return blocks.find((block) => {
+    // Whole-day block (legacy representation).
+    if (!block.time && !block.startTime && !block.endTime) return true;
+    // Legacy exact-time block.
+    if (block.time && block.time.trim().toUpperCase() === time.trim().toUpperCase()) return true;
+    // Range block: start inclusive, end exclusive.
+    if (block.startTime && block.endTime && appointmentMinutes !== null) {
+      const start = timeToMinutes(block.startTime);
+      const end = timeToMinutes(block.endTime);
+      return start !== null && end !== null && appointmentMinutes >= start && appointmentMinutes < end;
+    }
+    return false;
+  }) || null;
 };
 
 // Returns: available, waiting, or not_available.
@@ -285,7 +310,12 @@ const getAppointments = async (req, res) => {
 
     const appointments = await Appointment.find(filter)
       .populate("doctor", "name specialization")
-      .sort({ date: 1, time: 1, createdAt: 1 });
+      .lean();
+    appointments.sort((a, b) => {
+      const aDate = getAppointmentDateTime(a.date, a.time)?.getTime() ?? 0;
+      const bDate = getAppointmentDateTime(b.date, b.time)?.getTime() ?? 0;
+      return bDate - aDate || new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
 
     return res.status(200).json({ success: true, appointments });
   } catch (error) {
@@ -431,7 +461,12 @@ const getMyAppointments = async (req, res) => {
 
     const appointments = await Appointment.find({ patient: req.user.id })
       .populate("doctor", "name specialization qualification experience fees")
-      .sort({ date: 1, time: 1, createdAt: 1 });
+      .lean();
+    appointments.sort((a, b) => {
+      const aDate = getAppointmentDateTime(a.date, a.time)?.getTime() ?? 0;
+      const bDate = getAppointmentDateTime(b.date, b.time)?.getTime() ?? 0;
+      return bDate - aDate || new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
 
     return res.status(200).json({ success: true, appointments });
   } catch (error) {
@@ -542,100 +577,102 @@ const cancelMyAppointment = async (req, res) => {
 // ==========================================
 const blockAppointmentSlot = async (req, res) => {
   try {
-    if (!req.user || !["doctor", "admin"].includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Only doctors and admins can block appointment slots.",
-      });
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admins can block doctor time slots." });
     }
 
-    const { doctor, date, time, reason } = req.body;
-
-    if (!doctor || !date || !reason) {
-      return res.status(400).json({
-        success: false,
-        message: "Doctor, date and reason are required.",
-      });
+    const { doctor, date, startTime, endTime, reason } = req.body;
+    if (!doctor || !date || !startTime || !endTime || !reason?.trim()) {
+      return res.status(400).json({ success: false, message: "Doctor, date, start time, end time and reason are required." });
     }
-
     if (!isValidObjectId(doctor)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid doctor selected.",
-      });
+      return res.status(400).json({ success: false, message: "Invalid doctor selected." });
+    }
+    const doctorExists = await Doctor.findById(doctor);
+    if (!doctorExists) return res.status(404).json({ success: false, message: "Doctor not found." });
+
+    const start = timeToMinutes(startTime);
+    const end = timeToMinutes(endTime);
+    if (start === null || end === null || end <= start) {
+      return res.status(400).json({ success: false, message: "Enter a valid time range. End time must be later than start time." });
     }
 
-    if (req.user.role === "doctor" && String(req.user.id) !== String(doctor)) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only block your own appointment slots.",
-      });
-    }
-
-    const existingBlock = await BlockedSlot.findOne({
-      doctor,
-      date,
-      time: time || null,
+    const existingBlocks = await BlockedSlot.find({ doctor, date });
+    const overlaps = existingBlocks.some((block) => {
+      if (!block.time && !block.startTime && !block.endTime) return true;
+      if (block.time && timeToMinutes(block.time) === start) return true;
+      if (block.startTime && block.endTime) {
+        const oldStart = timeToMinutes(block.startTime);
+        const oldEnd = timeToMinutes(block.endTime);
+        return oldStart !== null && oldEnd !== null && start < oldEnd && end > oldStart;
+      }
+      return false;
     });
-
-    if (existingBlock) {
-      return res.status(409).json({
-        success: false,
-        message: "This slot is already blocked.",
-      });
-    }
+    if (overlaps) return res.status(409).json({ success: false, message: "This time range overlaps an existing blocked period." });
 
     const blockedSlot = await BlockedSlot.create({
-      doctor,
-      date,
-      time: time || null,
-      reason,
-      blockedBy: req.user.role,
-      blockedByUser: req.user.id,
+      doctor, date, startTime, endTime, time: null, reason: reason.trim(),
+      blockedBy: "admin", blockedByUser: req.user.id,
     });
 
-    const appointmentFilter = {
-      doctor,
-      date,
+    // Cancel every not-yet-started appointment whose booked start time falls
+    // inside [startTime, endTime). Completed/in-consultation appointments stay intact.
+    const appointments = await Appointment.find({
+      doctor, date,
       status: { $in: ["approved", "waiting"] },
       attendanceStatus: { $nin: ["in_consultation", "completed"] },
-    };
-    if (time) appointmentFilter.time = time;
-
-    const affected = await Appointment.find(appointmentFilter);
-
-    for (const appointment of affected) {
-      const wasApproved = appointment.status === "approved";
+    });
+    let cancelledAppointments = 0;
+    for (const appointment of appointments) {
+      const bookedMinutes = timeToMinutes(appointment.time);
+      if (bookedMinutes === null || bookedMinutes < start || bookedMinutes >= end) continue;
       appointment.status = "cancelled";
-      appointment.cancelledBy = req.user.role;
-      appointment.cancellationReason = reason;
+      appointment.cancelledBy = "admin";
+      appointment.cancellationReason = `Doctor time blocked: ${reason.trim()}`;
       appointment.cancelledAt = new Date();
       await appointment.save();
-
-      if (wasApproved) {
-        await promoteWaitingAppointment(
-          appointment.doctor,
-          appointment.date,
-          appointment.time
-        );
-      }
+      cancelledAppointments += 1;
     }
 
     return res.status(201).json({
       success: true,
-      message: time
-        ? "Appointment slot blocked successfully."
-        : "Doctor's entire date blocked successfully.",
+      message: `Time blocked successfully. ${cancelledAppointments} existing appointment(s) cancelled.`,
       blockedSlot,
-      cancelledAppointments: affected.length,
+      cancelledAppointments,
     });
   } catch (error) {
     console.error("Block slot error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Unable to block appointment slot.",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Unable to block doctor time.", error: error.message });
+  }
+};
+
+const getBlockedAppointmentSlots = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admins can view blocked slots." });
+    }
+    const filter = {};
+    if (req.query.doctor) filter.doctor = req.query.doctor;
+    if (req.query.date) filter.date = req.query.date;
+    const slots = await BlockedSlot.find(filter).populate("doctor", "name specialization").sort({ date: 1, startTime: 1, time: 1 });
+    return res.status(200).json({ success: true, blockedSlots: slots });
+  } catch (error) {
+    console.error("Get blocked slots error:", error);
+    return res.status(500).json({ success: false, message: "Unable to load blocked slots." });
+  }
+};
+
+const removeBlockedAppointmentSlot = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admins can remove blocked slots." });
+    }
+    const removed = await BlockedSlot.findByIdAndDelete(req.params.id);
+    if (!removed) return res.status(404).json({ success: false, message: "Blocked slot not found." });
+    return res.status(200).json({ success: true, message: "Blocked time removed. Patients can book this time again." });
+  } catch (error) {
+    console.error("Remove blocked slot error:", error);
+    return res.status(500).json({ success: false, message: "Unable to remove blocked time." });
   }
 };
 
@@ -887,6 +924,8 @@ module.exports = {
   getMyAppointments,
   cancelMyAppointment,
   blockAppointmentSlot,
+  getBlockedAppointmentSlots,
+  removeBlockedAppointmentSlot,
   updateAppointmentStatus,
   markPatientAvailable,
   getPatientQueue,

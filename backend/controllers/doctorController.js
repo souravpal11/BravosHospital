@@ -63,7 +63,7 @@ const registerDoctor = async (req, res) => {
       experience: Number(experience),
       fees: Number(fees),
       gender,
-      image: req.file ? `/uploads/doctors/${req.file.filename}` : "",
+      image: image || "",
       password: hashedPassword,
     });
 
@@ -329,10 +329,96 @@ const resetDoctorPassword = async (req, res) => {
 // EXPORT FUNCTIONS
 // ==========================================
 
+
+// ADMIN: List all doctors, including inactive accounts.
+const getAllDoctorsForAdmin = async (req, res) => {
+  try {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Admin access required." });
+    }
+    const doctors = await Doctor.find({})
+      .select("-password -resetOTP -resetOTPExpiry")
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ success: true, count: doctors.length, doctors });
+  } catch (error) {
+    console.error("Admin doctor list error:", error);
+    return res.status(500).json({ success: false, message: "Unable to load doctors." });
+  }
+};
+
+// ADMIN: Update doctor profile, including controlled fields (fees and experience).
+const adminUpdateDoctor = async (req, res) => {
+  try {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Admin access required." });
+    }
+    const allowed = ["name", "email", "phone", "specialization", "qualification", "experience", "fees", "gender", "isActive", "image"];
+    const updates = {};
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) updates[key] = req.body[key];
+    }
+    if (updates.name !== undefined) updates.name = String(updates.name).trim();
+    if (updates.email !== undefined) updates.email = String(updates.email).trim().toLowerCase();
+    for (const key of ["experience", "fees"]) {
+      if (updates[key] !== undefined) {
+        updates[key] = Number(updates[key]);
+        if (!Number.isFinite(updates[key]) || updates[key] < 0) {
+          return res.status(400).json({ success: false, message: `${key} must be a valid non-negative number.` });
+        }
+      }
+    }
+    if (updates.isActive !== undefined) updates.isActive = updates.isActive === true || updates.isActive === "true";
+
+    if (updates.email) {
+      const duplicate = await Doctor.findOne({ email: updates.email, _id: { $ne: req.params.id } });
+      if (duplicate) return res.status(409).json({ success: false, message: "Another doctor already uses this email." });
+    }
+    const doctor = await Doctor.findByIdAndUpdate(req.params.id, { $set: updates }, {
+      new: true, runValidators: true
+    }).select("-password -resetOTP -resetOTPExpiry");
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found." });
+    return res.json({ success: true, message: "Doctor profile updated successfully.", doctor });
+  } catch (error) {
+    console.error("Admin update doctor error:", error);
+    return res.status(500).json({ success: false, message: error.message || "Unable to update doctor." });
+  }
+};
+
+// DOCTOR: Update own profile. Fees and experience are intentionally not allowed.
+const updateDoctorOwnProfile = async (req, res) => {
+  try {
+    if (req.user?.role !== "doctor") {
+      return res.status(403).json({ success: false, message: "Doctor access required." });
+    }
+    const allowed = ["name", "phone", "specialization", "qualification", "gender", "image"];
+    const updates = {};
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) updates[key] = req.body[key];
+    }
+    const doctor = await Doctor.findByIdAndUpdate(req.user.id, { $set: updates }, {
+      new: true, runValidators: true
+    }).select("-password -resetOTP -resetOTPExpiry");
+    if (!doctor) return res.status(404).json({ success: false, message: "Doctor not found." });
+    return res.json({
+      success: true,
+      message: "Profile updated. Fee and experience changes require an administrator.",
+      doctor
+    });
+  } catch (error) {
+    console.error("Doctor self-profile update error:", error);
+    return res.status(500).json({ success: false, message: "Unable to update profile." });
+  }
+};
+
+
 module.exports = {
   registerDoctor,
   loginDoctor,
   getDoctors,
   forgotDoctorPassword,
   resetDoctorPassword,
+  getAllDoctorsForAdmin,
+  adminUpdateDoctor,
+  updateDoctorOwnProfile,
 };

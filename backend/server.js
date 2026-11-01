@@ -1,7 +1,6 @@
 const express = require("express");
-const path = require("path");
 const cors = require("cors");
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const connectDB = require("./config/db");
 
@@ -13,8 +12,11 @@ const contactRoutes = require("./routes/contactRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const testEmailRoute = require("./routes/testEmailRoute");
 const clinicalRoutes = require("./routes/clinicalRoutes");
-const profileRoutes = require("./routes/profileRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const profileRoutes = require("./routes/profileRoutes");
+const patientDirectoryRoutes = require("./routes/patientDirectoryRoutes");
+const adminReportsRoutes = require("./routes/adminReportsRoutes");
+const path = require("path");
 
 const app = express();
 
@@ -28,19 +30,18 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use("/api/patients", patientRoutes);
+app.use("/api/patient-directory", patientDirectoryRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/reports", adminReportsRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/gallery", galleryRoutes);
-// Only the public gallery folder is served statically. Patient medical reports
-// remain private and are downloaded through authenticated clinical endpoints.
-app.use("/uploads/gallery", express.static(path.join(__dirname, "uploads", "gallery")));
+app.use("/uploads", express.static("uploads"));
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/clinical", clinicalRoutes);
-app.use("/api/profile", profileRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/profile", profileRoutes);
 app.use("/uploads/profiles", express.static(path.join(__dirname, "uploads", "profiles")));
-app.use("/uploads/doctors", express.static(path.join(__dirname, "uploads", "doctors")));
 app.use("/api/test", testEmailRoute);
 
 // Test

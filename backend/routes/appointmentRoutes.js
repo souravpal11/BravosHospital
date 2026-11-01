@@ -8,6 +8,8 @@ const {
   getMyAppointments,
   cancelMyAppointment,
   blockAppointmentSlot,
+  getBlockedAppointmentSlots,
+  removeBlockedAppointmentSlot,
   updateAppointmentStatus,
   markPatientAvailable,
   getPatientQueue,
@@ -30,6 +32,8 @@ router.patch("/:id/cancel", authMiddleware, cancelMyAppointment);
 router.get("/", authMiddleware, getAppointments);
 router.patch("/:id/status", authMiddleware, updateAppointmentStatus);
 router.post("/block-slot", authMiddleware, blockAppointmentSlot);
+router.get("/blocked-slots", authMiddleware, getBlockedAppointmentSlots);
+router.delete("/blocked-slots/:id", authMiddleware, removeBlockedAppointmentSlot);
 
 // Patient check-in and queue
 router.patch("/:id/check-in", authMiddleware, markPatientAvailable);

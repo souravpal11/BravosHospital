@@ -7,9 +7,10 @@ import React, {
 } from "react";
 
 import axios from "axios";
+import api from "../config/api";
 import { Link } from "react-router-dom";
 
-const API = "http://localhost:5000/api/appointments";
+const API = `${api.defaults.baseURL}/api/appointments`;
 
 // ==========================================
 // HELPER FUNCTIONS

@@ -47,7 +47,7 @@ const updateMyProfile = async (req, res) => {
     const allowedFields = role === "patient"
       ? ["name", "phone", "age", "gender"]
       : role === "doctor"
-        ? ["name", "phone", "specialization", "qualification", "experience", "fees", "gender"]
+        ? ["name", "phone", "specialization", "qualification", "gender"]
         : ["name"];
 
     for (const field of allowedFields) {

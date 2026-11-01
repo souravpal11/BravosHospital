@@ -14,12 +14,13 @@ const blockedSlotSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Example: "10:00 AM"
-    // null means the entire day is blocked
-    time: {
-      type: String,
-      default: null,
-    },
+    // Legacy single-time block. null means no legacy exact-time value.
+    time: { type: String, default: null },
+
+    // New range block: startTime inclusive, endTime exclusive.
+    // Both null means the entire date is blocked.
+    startTime: { type: String, default: null },
+    endTime: { type: String, default: null },
 
     reason: {
       type: String,

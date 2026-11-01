@@ -15,8 +15,6 @@ const roleFields = {
     { key: "phone", label: "Phone number", required: true },
     { key: "specialization", label: "Specialization", required: true },
     { key: "qualification", label: "Qualification", required: true },
-    { key: "experience", label: "Experience (years)", type: "number", required: true },
-    { key: "fees", label: "Consultation fees", type: "number", required: true },
     { key: "gender", label: "Gender", required: true },
   ],
   admin: [{ key: "name", label: "Full name", required: true }],

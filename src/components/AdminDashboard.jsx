@@ -4,29 +4,22 @@ import { useEffect, useState } from "react";
 import api from "../config/api";
 import imageUrl from "../utils/imageUrl";
 import Logo from "../utils/Logo.png";
-
 const AdminDashboard = () => {
-  const [adminProfile, setAdminProfile] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem("admin") || "{}"); }
-    catch { return {}; }
+  const [admin] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("admin") || "{}");
+    } catch {
+      return {};
+    }
   });
+
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
-  const token = sessionStorage.getItem("token");
-
-  useEffect(() => {
-    if (!token) return;
-    api.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
-      .then(({ data }) => {
-        if (data.profile) {
-          setAdminProfile(data.profile);
-          sessionStorage.setItem("admin", JSON.stringify(data.profile));
-        }
-      })
-      .catch((error) => console.error("Error fetching admin profile photo:", error));
-  }, [token]);
+  const [dashboardError, setDashboardError] = useState("");
+  const token =
+    sessionStorage.getItem("token") || localStorage.getItem("token");
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -36,14 +29,24 @@ const AdminDashboard = () => {
         });
         setDashboardData(response.data);
       } catch (error) {
-        console.error("Error fetching admin dashboard:", error.response?.data || error.message);
+        console.error(
+          "Error fetching admin dashboard:",
+          error.response?.data || error.message,
+        );
+        setDashboardError(
+          error.response?.data?.message ||
+            "Dashboard data could not be loaded. Please check your login and backend connection.",
+        );
       } finally {
         setLoadingDashboard(false);
       }
     };
 
     if (token) fetchDashboard();
-    else setLoadingDashboard(false);
+    else {
+      setDashboardError("No active admin session. Please log in again.");
+      setLoadingDashboard(false);
+    }
   }, [token]);
 
   useEffect(() => {
@@ -74,11 +77,11 @@ const AdminDashboard = () => {
       <aside className="admin-sidebar">
         <div className="admin-logo">
           <div className="admin-logo-icon">
-               <img
+            <img
               src={Logo}
               alt="Bravos Hospital Logo"
               className="logo-image"
-              style={{ width: "45px", height: "45px" , borderRadius: "12px"}}
+              style={{ width: "45px", height: "45px", borderRadius: "12px" }}
             />
           </div>
 
@@ -111,21 +114,19 @@ const AdminDashboard = () => {
             <span>Manage Patients</span>
           </Link>
 
-          
-<Link to="/appointment-queue" className="admin-menu-link">
-  <i className="bi bi-people-fill"></i>
-  <span>Appointment Queue</span>
-</Link>
-
+          <Link to="/appointment-queue" className="admin-menu-link">
+            <i className="bi bi-people-fill"></i>
+            <span>Appointment Queue</span>
+          </Link>
 
           <Link to="/admin/appointments" className="admin-menu-link">
             <i className="bi bi-calendar-check"></i>
             <span>Appointments</span>
           </Link>
 
-          <Link to="/admin/records" className="admin-menu-link">
-            <i className="bi bi-file-earmark-medical"></i>
-            <span>Medical Reports</span>
+          <Link to="/admin/blocked-slots" className="admin-menu-link">
+            <i className="bi bi-calendar-x"></i>
+            <span>Block Doctor Time</span>
           </Link>
 
           <Link to="/admin/reports" className="admin-menu-link">
@@ -152,7 +153,10 @@ const AdminDashboard = () => {
             className="admin-menu-link"
             onClick={() => {
               ["token", "role", "patient", "doctor", "admin"].forEach((key) =>
-                sessionStorage.removeItem(key)
+                sessionStorage.removeItem(key),
+              );
+              ["token", "role", "patient", "doctor", "admin"].forEach((key) =>
+                localStorage.removeItem(key),
               );
             }}
           >
@@ -172,21 +176,38 @@ const AdminDashboard = () => {
             <span className="admin-date">ADMINISTRATION</span>
 
             <h2>
-              Welcome, <span>Administrator</span> 👋
+              Welcome, <span>Administrator</span>
             </h2>
           </div>
 
           <div className="admin-profile">
-            <div className="admin-avatar">
-              {adminProfile?.image ? <img src={imageUrl(adminProfile.image)} alt={adminProfile.name || "Admin"} onError={(event) => { event.currentTarget.style.display = "none"; }} /> : (adminProfile?.name || "Administrator").charAt(0).toUpperCase()}
+            <div className="admin-topbar-avatar">
+              {admin?.image ? (
+                <img
+                  src={imageUrl(admin.image)}
+                  alt={admin.name || "Admin"}
+                  onError={(event) => {
+                    event.currentTarget.style.display = "none";
+                  }}
+                  style={{ width: "45px", height: "45px", borderRadius: "50%" }}
+                />
+              ) : (
+                <div className="admin-avatar">A</div>
+              )}
             </div>
 
             <div>
-              <h6>{adminProfile?.name || "Administrator"}</h6>
+              <h6>Administrator</h6>
               <span>Hospital Admin</span>
             </div>
           </div>
         </header>
+
+        {dashboardError && (
+          <div className="alert alert-danger mx-4 mt-3" role="alert">
+            {dashboardError}
+          </div>
+        )}
 
         {/* WELCOME */}
 
@@ -231,7 +252,13 @@ const AdminDashboard = () => {
 
                 <div>
                   <span>Total Doctors</span>
-                  <h3>{loadingDashboard ? "…" : stats.totalDoctors ?? 0}</h3>
+                  <h3>
+                    {loadingDashboard
+                      ? "…"
+                      : dashboardError
+                        ? "—"
+                        : (stats.totalDoctors ?? 0)}
+                  </h3>
                   <small>Registered doctors</small>
                 </div>
               </div>
@@ -247,7 +274,13 @@ const AdminDashboard = () => {
 
                 <div>
                   <span>Total Patients</span>
-                  <h3>{loadingDashboard ? "…" : stats.totalPatients ?? 0}</h3>
+                  <h3>
+                    {loadingDashboard
+                      ? "…"
+                      : dashboardError
+                        ? "—"
+                        : (stats.totalPatients ?? 0)}
+                  </h3>
                   <small>Registered patients</small>
                 </div>
               </div>
@@ -263,7 +296,13 @@ const AdminDashboard = () => {
 
                 <div>
                   <span>Appointments</span>
-                  <h3>{loadingDashboard ? "…" : stats.monthAppointments ?? 0}</h3>
+                  <h3>
+                    {loadingDashboard
+                      ? "…"
+                      : dashboardError
+                        ? "—"
+                        : (stats.monthAppointments ?? 0)}
+                  </h3>
                   <small>This month</small>
                 </div>
               </div>
@@ -279,7 +318,13 @@ const AdminDashboard = () => {
 
                 <div>
                   <span>Pending</span>
-                  <h3>{loadingDashboard ? "…" : stats.pendingAppointments ?? 0}</h3>
+                  <h3>
+                    {loadingDashboard
+                      ? "…"
+                      : dashboardError
+                        ? "—"
+                        : (stats.pendingAppointments ?? 0)}
+                  </h3>
                   <small>Pending appointments</small>
                 </div>
               </div>
@@ -375,17 +420,41 @@ const AdminDashboard = () => {
 
                 <tbody>
                   {loadingDashboard ? (
-                    <tr><td colSpan="5" className="text-center py-4">Loading appointments...</td></tr>
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        Loading appointments...
+                      </td>
+                    </tr>
                   ) : recentAppointments.length === 0 ? (
-                    <tr><td colSpan="5" className="text-center py-4">No appointments found.</td></tr>
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        No appointments found.
+                      </td>
+                    </tr>
                   ) : (
                     recentAppointments.map((appointment) => (
                       <tr key={appointment._id}>
                         <td>{appointment.name || "Patient"}</td>
                         <td>{appointment.doctor?.name || "Doctor"}</td>
-                        <td>{appointment.date ? new Date(`${appointment.date}T00:00:00`).toLocaleDateString("en-IN") : "—"}</td>
+                        <td>
+                          {appointment.date
+                            ? new Date(
+                                `${appointment.date}T00:00:00`,
+                              ).toLocaleDateString("en-IN")
+                            : "—"}
+                        </td>
                         <td>{appointment.time || "—"}</td>
-                        <td><span className={appointment.status === "approved" ? "appointment-confirmed" : "appointment-pending"}>{appointment.status || "Unknown"}</span></td>
+                        <td>
+                          <span
+                            className={
+                              appointment.status === "approved"
+                                ? "appointment-confirmed"
+                                : "appointment-pending"
+                            }
+                          >
+                            {appointment.status || "Unknown"}
+                          </span>
+                        </td>
                       </tr>
                     ))
                   )}

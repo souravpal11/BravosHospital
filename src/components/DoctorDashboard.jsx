@@ -15,6 +15,7 @@ const DoctorDashboard = () => {
   const token = sessionStorage.getItem("token");
   const [dashboardData, setDashboardData] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
 
   useEffect(() => {
     if (!token) return;
@@ -43,13 +44,17 @@ const DoctorDashboard = () => {
           "Error fetching doctor dashboard:",
           error.response?.data || error.message,
         );
+        setDashboardError(error.response?.data?.message || "Dashboard data could not be loaded. Please check your login and backend connection.");
       } finally {
         setLoadingDashboard(false);
       }
     };
 
     if (token) fetchDashboard();
-    else setLoadingDashboard(false);
+    else {
+      setDashboardError("No active doctor session. Please log in again.");
+      setLoadingDashboard(false);
+    }
   }, [token]);
 
   const stats = dashboardData?.statistics || {};
@@ -165,6 +170,7 @@ const DoctorDashboard = () => {
       {/* ================= MAIN ================= */}
 
       <main className="doctor-main">
+        {dashboardError && <div className="alert alert-danger" role="alert">{dashboardError}</div>}
         {/* TOPBAR */}
 
         <header className="doctor-topbar">
@@ -172,7 +178,7 @@ const DoctorDashboard = () => {
             <span className="doctor-topbar-label">DOCTOR PORTAL</span>
 
             <h2>
-              Good Morning, <span>{doctorName}</span> 👋
+              Welcome, <span>{doctorName}</span> 
             </h2>
 
             <p>Here's what's happening with your patients today.</p>
@@ -243,7 +249,7 @@ const DoctorDashboard = () => {
                 <div>
                   <span>Today's Appointments</span>
                   <h3>
-                    {loadingDashboard ? "…" : (stats.todayAppointments ?? 0)}
+                    {loadingDashboard ? "…" : (dashboardError ? "—" : stats.todayAppointments ?? 0)}
                   </h3>
                   <small>Scheduled for today</small>
                 </div>
@@ -260,7 +266,7 @@ const DoctorDashboard = () => {
 
                 <div>
                   <span>Total Patients</span>
-                  <h3>{loadingDashboard ? "…" : (stats.totalPatients ?? 0)}</h3>
+                  <h3>{loadingDashboard ? "…" : (dashboardError ? "—" : stats.totalPatients ?? 0)}</h3>
                   <small>Under your care</small>
                 </div>
               </div>
@@ -277,7 +283,7 @@ const DoctorDashboard = () => {
                 <div>
                   <span>Pending Requests</span>
                   <h3>
-                    {loadingDashboard ? "…" : (stats.pendingRequests ?? 0)}
+                    {loadingDashboard ? "…" : (dashboardError ? "—" : stats.pendingRequests ?? 0)}
                   </h3>
                   <small>Need your attention</small>
                 </div>
@@ -295,7 +301,7 @@ const DoctorDashboard = () => {
                 <div>
                   <span>Completed</span>
                   <h3>
-                    {loadingDashboard ? "…" : (stats.completedThisMonth ?? 0)}
+                    {loadingDashboard ? "…" : (dashboardError ? "—" : stats.completedThisMonth ?? 0)}
                   </h3>
                   <small>This month</small>
                 </div>
