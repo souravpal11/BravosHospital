@@ -21,10 +21,37 @@ const AdminRegisterDoctor = () => {
   const [photoPreview, setPhotoPreview] = useState("");
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value, files } = e.target;
+
+    if (name === "image") {
+      const file = files?.[0];
+
+      if (!file) return;
+
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        setMessage("Please select a JPG, PNG or WEBP image.");
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setMessage("Image size must be less than 5 MB.");
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        image: file,
+      }));
+
+      setPhotoPreview(URL.createObjectURL(file));
+      setMessage("");
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -43,7 +70,8 @@ const AdminRegisterDoctor = () => {
 
       const payload = new FormData();
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== "") payload.append(key, value);
+        if (value !== null && value !== undefined && value !== "")
+          payload.append(key, value);
       });
       const response = await api.post("/api/doctors/register", payload);
 
@@ -63,7 +91,7 @@ const AdminRegisterDoctor = () => {
         password: "",
         confirmPassword: "",
         image: null,
-        fees:"",
+        fees: "",
       });
     } catch (error) {
       console.error(error);
@@ -337,14 +365,29 @@ const AdminRegisterDoctor = () => {
 
                     {/* DOCTOR PHOTO UPLOAD */}
                     <div className="col-12 mb-4">
-                      <label className="form-label">Doctor Profile Photo (Optional)</label>
+                      <label className="form-label">
+                        Doctor Profile Photo (Optional)
+                      </label>
                       <div className="doctor-photo-upload">
                         <div className="doctor-photo-preview">
-                          {photoPreview ? <img src={photoPreview} alt="Doctor preview" /> : <i className="bi bi-person-bounding-box"></i>}
+                          {photoPreview ? (
+                            <img src={photoPreview} alt="Doctor preview" />
+                          ) : (
+                            <i className="bi bi-person-bounding-box"></i>
+                          )}
                         </div>
                         <div className="flex-grow-1">
-                          <input type="file" name="image" className="form-control" accept="image/png,image/jpeg,image/webp" onChange={handleChange} />
-                          <small className="text-muted">Choose a JPG, PNG or WEBP image from your device (maximum 5 MB).</small>
+                          <input
+                            type="file"
+                            name="image"
+                            className="form-control"
+                            accept="image/png,image/jpeg,image/webp"
+                            onChange={handleChange}
+                          />
+                          <small className="text-muted">
+                            Choose a JPG, PNG or WEBP image from your device
+                            (maximum 5 MB).
+                          </small>
                         </div>
                       </div>
                     </div>
