@@ -140,31 +140,6 @@ export default function ManageDoctors() {
 
   return (
     <div className="manage-doctors-page">
-      <aside className="manage-doctors-sidebar">
-        <div className="md-brand">
-          <i className="bi bi-heart-pulse-fill" />
-          <div>
-            <b>BRAVOS</b>
-            <small>Admin Panel</small>
-          </div>
-        </div>
-        <Link to="/admin-dashboard">
-          <i className="bi bi-grid" /> Dashboard
-        </Link>
-        <Link to="/admin/register-doctor">
-          <i className="bi bi-person-plus" /> Register Doctor
-        </Link>
-        <Link className="active" to="/admin/doctors">
-          <i className="bi bi-person-badge" /> Manage Doctors
-        </Link>
-        <Link to="/admin/reports">
-          <i className="bi bi-bar-chart" /> Reports & Audit
-        </Link>
-        <Link to="/">
-          <i className="bi bi-box-arrow-left" /> Exit
-        </Link>
-      </aside>
-
       <main className="manage-doctors-main">
         <header className="md-header">
           <div>
@@ -173,12 +148,12 @@ export default function ManageDoctors() {
             <p>Update doctor profiles and control directory access.</p>
           </div>
           <div className="d-flex gap-2 ">
-          <Link to="/admin-dashboard" className="back-dashboard-btn">
-                        <i className="bi bi-arrow-left"></i>
-                      </Link>
-          <Link className="md-add-btn" to="/admin/register-doctor">
-            <i className="bi bi-plus-lg" /> Register Doctor
-          </Link>
+            <Link to="/admin-dashboard" className="back-dashboard-btn">
+              <i className="bi bi-arrow-left"></i>
+            </Link>
+            <Link className="md-add-btn" to="/admin/register-doctor">
+              <i className="bi bi-plus-lg" /> Register Doctor
+            </Link>
           </div>
         </header>
 
