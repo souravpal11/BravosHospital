@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 require("dotenv").config();
 
@@ -11,6 +12,9 @@ const galleryRoutes = require("./routes/galleryRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const testEmailRoute = require("./routes/testEmailRoute");
+const clinicalRoutes = require("./routes/clinicalRoutes");
+const profileRoutes = require("./routes/profileRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
 
@@ -28,8 +32,15 @@ app.use("/api/doctors", doctorRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/gallery", galleryRoutes);
-app.use("/uploads", express.static("uploads"));
+// Only the public gallery folder is served statically. Patient medical reports
+// remain private and are downloaded through authenticated clinical endpoints.
+app.use("/uploads/gallery", express.static(path.join(__dirname, "uploads", "gallery")));
 app.use("/api/appointments", appointmentRoutes);
+app.use("/api/clinical", clinicalRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/uploads/profiles", express.static(path.join(__dirname, "uploads", "profiles")));
+app.use("/uploads/doctors", express.static(path.join(__dirname, "uploads", "doctors")));
 app.use("/api/test", testEmailRoute);
 
 // Test

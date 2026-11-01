@@ -58,7 +58,7 @@
 //   // ==========================================
 
 //   useEffect(() => {
-//     const storedPatient = localStorage.getItem("patient");
+//     const storedPatient = sessionStorage.getItem("patient");
 
 //     if (!storedPatient) {
 //       setPatientLoading(false);
@@ -81,7 +81,7 @@
 //       }));
 //     } catch (error) {
 //       console.error("Patient Data Error:", error);
-//       localStorage.removeItem("patient");
+//       sessionStorage.removeItem("patient");
 //     } finally {
 //       setPatientLoading(false);
 //     }
@@ -168,7 +168,7 @@
 //   }
 
 //   // Get JWT token
-//   const token = localStorage.getItem("token");
+//   const token = sessionStorage.getItem("token");
 
 //   if (!token) {
 //     alert("Your login session has expired. Please login again.");
@@ -741,7 +741,7 @@ const Appointment = () => {
   const [booking, setBooking] = useState(false);
 
   useEffect(() => {
-    const storedPatient = localStorage.getItem("patient");
+    const storedPatient = sessionStorage.getItem("patient");
 
     if (!storedPatient) {
       setPatientLoading(false);
@@ -752,7 +752,7 @@ const Appointment = () => {
       setPatient(JSON.parse(storedPatient));
     } catch (error) {
       console.error("Patient data error:", error);
-      localStorage.removeItem("patient");
+      sessionStorage.removeItem("patient");
     } finally {
       setPatientLoading(false);
     }
@@ -838,7 +838,7 @@ const Appointment = () => {
             time: formData.time,
           },
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${sessionStorage.getItem("token")}`,
           },
           signal: controller.signal,
         });
@@ -879,7 +879,7 @@ const Appointment = () => {
       return;
     }
 
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     if (!token) {
       alert("Your login session has expired. Please login again.");
       navigate("/login");

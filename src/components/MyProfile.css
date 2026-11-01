@@ -1,0 +1,29 @@
+.my-profile-page{min-height:100vh;background:#f4f7fb;padding:34px 20px 60px;color:#17243a}
+.my-profile-shell{max-width:1000px;margin:0 auto}
+.my-profile-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.profile-back-link{color:#53647c;text-decoration:none;font-weight:600}
+.profile-back-link:hover{color:#1769aa}
+.profile-role-chip{background:#e7f1fb;color:#1769aa;border-radius:30px;padding:8px 15px;font-size:13px;font-weight:700}
+.my-profile-card{background:#fff;border:1px solid #e7edf4;border-radius:18px;padding:34px;box-shadow:0 12px 36px rgba(31,54,82,.06)}
+.my-profile-heading h1{font-size:30px;font-weight:750;margin:6px 0}
+.my-profile-heading p{color:#718096;margin:0 0 25px}
+.profile-eyebrow{font-size:11px;letter-spacing:1.5px;color:#2476b9;font-weight:800}
+.profile-photo-section{display:flex;align-items:center;gap:22px;padding:22px;background:#f8fafc;border:1px solid #edf1f6;border-radius:14px;margin-bottom:28px}
+.profile-photo-frame{width:104px;height:104px;border-radius:50%;background:#e2edf8;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#246ca7;font-size:38px;font-weight:700;flex-shrink:0}
+.profile-photo-frame img{width:100%;height:100%;object-fit:cover}
+.profile-photo-controls h3{font-size:17px;font-weight:700;margin:0 0 5px}
+.profile-photo-controls p{font-size:13px;color:#718096;margin:0 0 12px}
+.profile-upload-btn{display:inline-flex;align-items:center;gap:8px;background:#1769aa;color:#fff;padding:9px 15px;border-radius:8px;font-size:13px;font-weight:650;cursor:pointer}
+.profile-upload-btn input{display:none}
+.profile-clear-photo{border:0;background:none;color:#a04444;font-size:13px;margin-left:12px}
+.profile-fields-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.profile-field label{display:block;font-size:13px;font-weight:700;color:#46566d;margin-bottom:7px}
+.profile-field .form-control,.profile-field .form-select{min-height:44px;border-color:#dce4ed;border-radius:8px}
+.profile-field small{display:block;color:#8a97a8;font-size:11px;margin-top:5px}
+.profile-form-footer{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-top:30px;padding-top:22px;border-top:1px solid #edf1f5}
+.profile-form-footer>span{font-size:12px;color:#718096}
+.profile-form-footer>span i{color:#21936e;margin-right:5px}
+.profile-save-btn{border:0;background:#1769aa;color:#fff;border-radius:9px;padding:12px 20px;font-weight:700}
+.profile-save-btn:disabled{opacity:.65;cursor:not-allowed}
+.my-profile-loading{min-height:70vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#718096}
+@media(max-width:640px){.my-profile-card{padding:22px 17px}.profile-fields-grid{grid-template-columns:1fr}.profile-photo-section{align-items:flex-start;flex-direction:column}.profile-form-footer{align-items:stretch;flex-direction:column}.profile-save-btn{width:100%}.my-profile-top{gap:10px;flex-wrap:wrap}}

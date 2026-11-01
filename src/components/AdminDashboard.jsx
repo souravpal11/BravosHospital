@@ -2,15 +2,56 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../config/api";
+import imageUrl from "../utils/imageUrl";
+import Logo from "../utils/Logo.png";
 
 const AdminDashboard = () => {
+  const [adminProfile, setAdminProfile] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("admin") || "{}"); }
+    catch { return {}; }
+  });
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const token = sessionStorage.getItem("token");
+
+  useEffect(() => {
+    if (!token) return;
+    api.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => {
+        if (data.profile) {
+          setAdminProfile(data.profile);
+          sessionStorage.setItem("admin", JSON.stringify(data.profile));
+        }
+      })
+      .catch((error) => console.error("Error fetching admin profile photo:", error));
+  }, [token]);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const response = await api.get("/api/dashboard/admin", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setDashboardData(response.data);
+      } catch (error) {
+        console.error("Error fetching admin dashboard:", error.response?.data || error.message);
+      } finally {
+        setLoadingDashboard(false);
+      }
+    };
+
+    if (token) fetchDashboard();
+    else setLoadingDashboard(false);
+  }, [token]);
 
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const response = await api.get("/api/contact");
+        const response = await api.get("/api/contact", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         setMessages(response.data.messages);
       } catch (error) {
@@ -21,7 +62,11 @@ const AdminDashboard = () => {
     };
 
     fetchMessages();
-  }, []);
+  }, [token]);
+
+  const stats = dashboardData?.statistics || {};
+  const recentAppointments = dashboardData?.recentAppointments || [];
+
   return (
     <div className="admin-dashboard">
       {/* ================= SIDEBAR ================= */}
@@ -29,7 +74,12 @@ const AdminDashboard = () => {
       <aside className="admin-sidebar">
         <div className="admin-logo">
           <div className="admin-logo-icon">
-            <i className="bi bi-heart-pulse-fill"></i>
+               <img
+              src={Logo}
+              alt="Bravos Hospital Logo"
+              className="logo-image"
+              style={{ width: "45px", height: "45px" , borderRadius: "12px"}}
+            />
           </div>
 
           <div>
@@ -75,7 +125,7 @@ const AdminDashboard = () => {
 
           <Link to="/admin/records" className="admin-menu-link">
             <i className="bi bi-file-earmark-medical"></i>
-            <span>Medical Records</span>
+            <span>Medical Reports</span>
           </Link>
 
           <Link to="/admin/reports" className="admin-menu-link">
@@ -97,7 +147,15 @@ const AdminDashboard = () => {
             <span>Admin Profile</span>
           </Link>
 
-          <Link to="/" className="admin-menu-link">
+          <Link
+            to="/"
+            className="admin-menu-link"
+            onClick={() => {
+              ["token", "role", "patient", "doctor", "admin"].forEach((key) =>
+                sessionStorage.removeItem(key)
+              );
+            }}
+          >
             <i className="bi bi-box-arrow-left"></i>
             <span>Logout</span>
           </Link>
@@ -119,10 +177,12 @@ const AdminDashboard = () => {
           </div>
 
           <div className="admin-profile">
-            <div className="admin-avatar">A</div>
+            <div className="admin-avatar">
+              {adminProfile?.image ? <img src={imageUrl(adminProfile.image)} alt={adminProfile.name || "Admin"} onError={(event) => { event.currentTarget.style.display = "none"; }} /> : (adminProfile?.name || "Administrator").charAt(0).toUpperCase()}
+            </div>
 
             <div>
-              <h6>Administrator</h6>
+              <h6>{adminProfile?.name || "Administrator"}</h6>
               <span>Hospital Admin</span>
             </div>
           </div>
@@ -171,7 +231,7 @@ const AdminDashboard = () => {
 
                 <div>
                   <span>Total Doctors</span>
-                  <h3>24</h3>
+                  <h3>{loadingDashboard ? "…" : stats.totalDoctors ?? 0}</h3>
                   <small>Registered doctors</small>
                 </div>
               </div>
@@ -187,7 +247,7 @@ const AdminDashboard = () => {
 
                 <div>
                   <span>Total Patients</span>
-                  <h3>1,248</h3>
+                  <h3>{loadingDashboard ? "…" : stats.totalPatients ?? 0}</h3>
                   <small>Registered patients</small>
                 </div>
               </div>
@@ -203,7 +263,7 @@ const AdminDashboard = () => {
 
                 <div>
                   <span>Appointments</span>
-                  <h3>86</h3>
+                  <h3>{loadingDashboard ? "…" : stats.monthAppointments ?? 0}</h3>
                   <small>This month</small>
                 </div>
               </div>
@@ -219,7 +279,7 @@ const AdminDashboard = () => {
 
                 <div>
                   <span>Pending</span>
-                  <h3>12</h3>
+                  <h3>{loadingDashboard ? "…" : stats.pendingAppointments ?? 0}</h3>
                   <small>Pending appointments</small>
                 </div>
               </div>
@@ -314,47 +374,21 @@ const AdminDashboard = () => {
                 </thead>
 
                 <tbody>
-                  <tr>
-                    <td>Rahul Sharma</td>
-
-                    <td>Dr. Sourav Singh</td>
-
-                    <td>05 Sep 2026</td>
-
-                    <td>10:30 AM</td>
-
-                    <td>
-                      <span className="appointment-confirmed">Confirmed</span>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td>Priya Singh</td>
-
-                    <td>Dr. Sumit Singh</td>
-
-                    <td>05 Sep 2026</td>
-
-                    <td>11:00 AM</td>
-
-                    <td>
-                      <span className="appointment-pending">Pending</span>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td>Amit Kumar</td>
-
-                    <td>Dr. Vijendra Singh</td>
-
-                    <td>06 Sep 2026</td>
-
-                    <td>09:30 AM</td>
-
-                    <td>
-                      <span className="appointment-confirmed">Confirmed</span>
-                    </td>
-                  </tr>
+                  {loadingDashboard ? (
+                    <tr><td colSpan="5" className="text-center py-4">Loading appointments...</td></tr>
+                  ) : recentAppointments.length === 0 ? (
+                    <tr><td colSpan="5" className="text-center py-4">No appointments found.</td></tr>
+                  ) : (
+                    recentAppointments.map((appointment) => (
+                      <tr key={appointment._id}>
+                        <td>{appointment.name || "Patient"}</td>
+                        <td>{appointment.doctor?.name || "Doctor"}</td>
+                        <td>{appointment.date ? new Date(`${appointment.date}T00:00:00`).toLocaleDateString("en-IN") : "—"}</td>
+                        <td>{appointment.time || "—"}</td>
+                        <td><span className={appointment.status === "approved" ? "appointment-confirmed" : "appointment-pending"}>{appointment.status || "Unknown"}</span></td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../config/api";
+import imageUrl from "../utils/imageUrl";
 import Gallery from "./Gallery";
 
 const Home = () => {
@@ -180,13 +181,23 @@ const Home = () => {
                     {/* DOCTOR IMAGE */}
 
                     <div className="doctor-image">
-                      <img
-                        src={
-                          doctor.image ||
-                          "https://via.placeholder.com/400x400?text=Doctor"
-                        }
-                        alt={doctor.name}
-                      />
+                      {doctor.image ? (
+                        <img
+                          src={imageUrl(doctor.image)}
+                          alt={doctor.name}
+                          onError={(e) => {
+                            console.error(
+                              "Doctor image failed:",
+                              imageUrl(doctor.image),
+                            );
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="doctor-placeholder">
+                          <i className="bi bi-person-fill"></i>
+                        </div>
+                      )}
 
                       <div className="doctor-icon">
                         <i className="bi bi-person-plus-fill"></i>

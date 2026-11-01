@@ -63,7 +63,7 @@ const registerDoctor = async (req, res) => {
       experience: Number(experience),
       fees: Number(fees),
       gender,
-      image: image || "",
+      image: req.file ? `/uploads/doctors/${req.file.filename}` : "",
       password: hashedPassword,
     });
 

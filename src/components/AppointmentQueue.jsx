@@ -27,7 +27,7 @@ const getToday = () => {
 
 const readStoredObject = (key) => {
   try {
-    return JSON.parse(localStorage.getItem(key) || "null");
+    return JSON.parse(sessionStorage.getItem(key) || "null");
   } catch {
     return null;
   }
@@ -54,8 +54,8 @@ const getDoctorName = (appointment) => {
 // ==========================================
 
 const AppointmentQueue = () => {
-  const token = localStorage.getItem("token");
-  const role = localStorage.getItem("role");
+  const token = sessionStorage.getItem("token");
+  const role = sessionStorage.getItem("role");
 
   const loggedInDoctor = readStoredObject("doctor");
 

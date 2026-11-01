@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../config/api";
 import { Link } from "react-router-dom";
+import imageUrl from "../utils/imageUrl";
 
 const Doctors = () => {
   const [doctors, setDoctors] = useState([]);
@@ -115,7 +116,7 @@ const Doctors = () => {
 
                     <div className="doctor-image">
                       {doctor.image ? (
-                        <img src={doctor.image} alt={doctor.name} />
+                        <img src={imageUrl(doctor.image)} alt={doctor.name} onError={(event) => { event.currentTarget.style.display = "none"; }} />
                       ) : (
                         <div className="doctor-placeholder">
                           <i className="bi bi-person-fill"></i>

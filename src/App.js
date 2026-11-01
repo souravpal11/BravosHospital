@@ -22,6 +22,8 @@ import Contact from "./components/Contact";
 import ForgotPassword from "./components/ForgotPassword";
 import MyAppointments from "./components/MyAppointments";
 import AppointmentQueue from "./components/AppointmentQueue";
+import { MedicalRecords, Prescriptions } from "./components/ClinicalPages";
+import MyProfile from "./components/MyProfile";
 
 // ================================
 // PUBLIC LAYOUT
@@ -132,18 +134,27 @@ function App() {
         <Route path="/patient-dashboard" element={<PatientDashboard />} />
 
         <Route path="/my-appointments" element={<MyAppointments />} />
+        <Route path="/medical-records" element={<MedicalRecords />} />
+        <Route path="/prescriptions" element={<Prescriptions />} />
+        <Route path="/profile" element={<MyProfile />} />
 
         {/* =========================
             DOCTOR
         ========================== */}
 
         <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+        <Route path="/doctor/records" element={<MedicalRecords />} />
+        <Route path="/doctor/prescriptions" element={<Prescriptions />} />
+        <Route path="/doctor/profile" element={<MyProfile />} />
 
         {/* =========================
             ADMIN
         ========================== */}
 
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/records" element={<MedicalRecords />} />
+        <Route path="/admin/prescriptions" element={<Prescriptions />} />
+        <Route path="/admin/profile" element={<MyProfile />} />
 
         <Route
           path="/admin/register-doctor"

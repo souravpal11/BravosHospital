@@ -1,9 +1,60 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import api from "../config/api";
+import imageUrl from "../utils/imageUrl";
+import Logo from "../utils/Logo.png";
 
 const DoctorDashboard = () => {
-  // Temporary doctor data
-  const doctor = JSON.parse(localStorage.getItem("doctor"));
+  const [doctor, setDoctor] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("doctor") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const token = sessionStorage.getItem("token");
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    api
+      .get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => {
+        if (data.profile) {
+          setDoctor(data.profile);
+          sessionStorage.setItem("doctor", JSON.stringify(data.profile));
+        }
+      })
+      .catch((error) =>
+        console.error("Error fetching doctor profile photo:", error),
+      );
+  }, [token]);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const response = await api.get("/api/dashboard/doctor", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setDashboardData(response.data);
+      } catch (error) {
+        console.error(
+          "Error fetching doctor dashboard:",
+          error.response?.data || error.message,
+        );
+      } finally {
+        setLoadingDashboard(false);
+      }
+    };
+
+    if (token) fetchDashboard();
+    else setLoadingDashboard(false);
+  }, [token]);
+
+  const stats = dashboardData?.statistics || {};
+  const todayAppointments = dashboardData?.todayAppointments || [];
+  const recentPatients = dashboardData?.recentPatients || [];
 
   const doctorName = doctor?.name || "Dr. Doctor";
   const specialization = doctor?.specialization || "Medical Specialist";
@@ -17,7 +68,12 @@ const DoctorDashboard = () => {
 
         <div className="doctor-logo">
           <div className="doctor-logo-icon">
-            <i className="bi bi-heart-pulse-fill"></i>
+             <img
+              src={Logo}
+              alt="Bravos Hospital Logo"
+              className="logo-image"
+              style={{ width: "45px", height: "45px" , borderRadius: "12px"}}
+            />
           </div>
 
           <div>
@@ -30,7 +86,17 @@ const DoctorDashboard = () => {
 
         <div className="doctor-sidebar-profile">
           <div className="doctor-sidebar-avatar">
-            <i className="bi bi-person"></i>
+            {doctor?.image ? (
+              <img
+                src={imageUrl(doctor.image)}
+                alt={doctorName}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : (
+              <i className="bi bi-person"></i>
+            )}
           </div>
 
           <div>
@@ -64,7 +130,7 @@ const DoctorDashboard = () => {
 
           <Link to="/doctor/records" className="doctor-menu-link">
             <i className="bi bi-file-earmark-medical"></i>
-            <span>Medical Records</span>
+            <span>Medical Reports</span>
           </Link>
 
           <Link to="/doctor/prescriptions" className="doctor-menu-link">
@@ -85,9 +151,9 @@ const DoctorDashboard = () => {
             to="/"
             className="doctor-menu-link"
             onClick={() => {
-              localStorage.removeItem("token");
-              localStorage.removeItem("role");
-              localStorage.removeItem("doctor");
+              sessionStorage.removeItem("token");
+              sessionStorage.removeItem("role");
+              sessionStorage.removeItem("doctor");
             }}
           >
             <i className="bi bi-box-arrow-left"></i>
@@ -114,7 +180,17 @@ const DoctorDashboard = () => {
 
           <div className="doctor-topbar-profile">
             <div className="doctor-topbar-avatar">
-              <i className="bi bi-person"></i>
+              {doctor?.image ? (
+                <img
+                  src={imageUrl(doctor.image)}
+                  alt={doctorName}
+                  onError={(event) => {
+                    event.currentTarget.style.display = "none";
+                  }}
+                />
+              ) : (
+                <i className="bi bi-person"></i>
+              )}
             </div>
 
             <div>
@@ -136,7 +212,7 @@ const DoctorDashboard = () => {
             <h1>Your care makes a difference.</h1>
 
             <p>
-              Manage your appointments, patients, medical records and
+              Manage your appointments, patients, medical reports and
               prescriptions from one secure place.
             </p>
           </div>
@@ -166,7 +242,9 @@ const DoctorDashboard = () => {
 
                 <div>
                   <span>Today's Appointments</span>
-                  <h3>08</h3>
+                  <h3>
+                    {loadingDashboard ? "…" : (stats.todayAppointments ?? 0)}
+                  </h3>
                   <small>Scheduled for today</small>
                 </div>
               </div>
@@ -182,7 +260,7 @@ const DoctorDashboard = () => {
 
                 <div>
                   <span>Total Patients</span>
-                  <h3>156</h3>
+                  <h3>{loadingDashboard ? "…" : (stats.totalPatients ?? 0)}</h3>
                   <small>Under your care</small>
                 </div>
               </div>
@@ -198,7 +276,9 @@ const DoctorDashboard = () => {
 
                 <div>
                   <span>Pending Requests</span>
-                  <h3>05</h3>
+                  <h3>
+                    {loadingDashboard ? "…" : (stats.pendingRequests ?? 0)}
+                  </h3>
                   <small>Need your attention</small>
                 </div>
               </div>
@@ -214,7 +294,9 @@ const DoctorDashboard = () => {
 
                 <div>
                   <span>Completed</span>
-                  <h3>42</h3>
+                  <h3>
+                    {loadingDashboard ? "…" : (stats.completedThisMonth ?? 0)}
+                  </h3>
                   <small>This month</small>
                 </div>
               </div>
@@ -239,109 +321,55 @@ const DoctorDashboard = () => {
                 <Link to="/doctor/appointments">View All</Link>
               </div>
 
-              {/* APPOINTMENT */}
-
-              <div className="doctor-appointment">
-                <div className="doctor-appointment-time">
-                  <strong>09:00</strong>
-                  <span>AM</span>
+              {loadingDashboard ? (
+                <div className="text-center py-4">
+                  Loading today's appointments...
                 </div>
-
-                <div className="doctor-patient-avatar">RS</div>
-
-                <div className="doctor-appointment-info">
-                  <h5>Rahul Sharma</h5>
-
-                  <p>
-                    <i className="bi bi-telephone"></i>
-                    9876543210
-                  </p>
+              ) : todayAppointments.length === 0 ? (
+                <div className="text-center py-4 text-muted">
+                  No appointments scheduled for today.
                 </div>
-
-                <div className="doctor-appointment-type">
-                  <span>General Consultation</span>
-                </div>
-
-                <button className="doctor-view-btn">View</button>
-              </div>
-
-              {/* APPOINTMENT */}
-
-              <div className="doctor-appointment">
-                <div className="doctor-appointment-time">
-                  <strong>10:30</strong>
-                  <span>AM</span>
-                </div>
-
-                <div className="doctor-patient-avatar">PS</div>
-
-                <div className="doctor-appointment-info">
-                  <h5>Priya Singh</h5>
-
-                  <p>
-                    <i className="bi bi-telephone"></i>
-                    9876501234
-                  </p>
-                </div>
-
-                <div className="doctor-appointment-type">
-                  <span>Follow-up</span>
-                </div>
-
-                <button className="doctor-view-btn">View</button>
-              </div>
-
-              {/* APPOINTMENT */}
-
-              <div className="doctor-appointment">
-                <div className="doctor-appointment-time">
-                  <strong>12:00</strong>
-                  <span>PM</span>
-                </div>
-
-                <div className="doctor-patient-avatar">AK</div>
-
-                <div className="doctor-appointment-info">
-                  <h5>Amit Kumar</h5>
-
-                  <p>
-                    <i className="bi bi-telephone"></i>
-                    9988776655
-                  </p>
-                </div>
-
-                <div className="doctor-appointment-type">
-                  <span>Consultation</span>
-                </div>
-
-                <button className="doctor-view-btn">View</button>
-              </div>
-
-              {/* APPOINTMENT */}
-
-              <div className="doctor-appointment">
-                <div className="doctor-appointment-time">
-                  <strong>02:30</strong>
-                  <span>PM</span>
-                </div>
-
-                <div className="doctor-patient-avatar">NP</div>
-
-                <div className="doctor-appointment-info">
-                  <h5>Neha Patel</h5>
-
-                  <p>
-                    <i className="bi bi-telephone"></i>
-                    9898989898
-                  </p>
-                </div>
-
-                <div className="doctor-appointment-type">
-                  <span>Follow-up</span>
-                </div>
-
-                <button className="doctor-view-btn">View</button>
-              </div>
+              ) : (
+                todayAppointments.map((appointment) => {
+                  const timeParts = (appointment.time || "").match(
+                    /^(.*?)(?:\s+(AM|PM))?$/i,
+                  );
+                  return (
+                    <div className="doctor-appointment" key={appointment._id}>
+                      <div className="doctor-appointment-time">
+                        <strong>
+                          {timeParts?.[1] || appointment.time || "—"}
+                        </strong>
+                        <span>{timeParts?.[2] || ""}</span>
+                      </div>
+                      <div className="doctor-patient-avatar">
+                        {(appointment.name || "P")
+                          .split(" ")
+                          .map((part) => part[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                      <div className="doctor-appointment-info">
+                        <h5>{appointment.name || "Patient"}</h5>
+                        <p>
+                          <i className="bi bi-telephone"></i>{" "}
+                          {appointment.phone || "Phone unavailable"}
+                        </p>
+                      </div>
+                      <div className="doctor-appointment-type">
+                        <span>{appointment.department || "Consultation"}</span>
+                      </div>
+                      <Link
+                        to="/doctor/appointments"
+                        className="doctor-view-btn"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  );
+                })
+              )}
             </section>
           </div>
 
@@ -389,7 +417,7 @@ const DoctorDashboard = () => {
                 </div>
 
                 <section>
-                  <h5>Medical Records</h5>
+                  <h5>Medical Reports</h5>
                   <p>Review patient records</p>
                 </section>
 
@@ -439,69 +467,39 @@ const DoctorDashboard = () => {
                 </thead>
 
                 <tbody>
-                  <tr>
-                    <td>
-                      <strong>Rahul Sharma</strong>
-                    </td>
-
-                    <td>34</td>
-
-                    <td>Male</td>
-
-                    <td>03 Sep 2026</td>
-
-                    <td>
-                      <span className="patient-active">Active</span>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      <strong>Priya Singh</strong>
-                    </td>
-
-                    <td>29</td>
-
-                    <td>Female</td>
-
-                    <td>02 Sep 2026</td>
-
-                    <td>
-                      <span className="patient-active">Active</span>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      <strong>Amit Kumar</strong>
-                    </td>
-
-                    <td>46</td>
-
-                    <td>Male</td>
-
-                    <td>29 Aug 2026</td>
-
-                    <td>
-                      <span className="patient-followup">Follow-up</span>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      <strong>Neha Patel</strong>
-                    </td>
-
-                    <td>38</td>
-
-                    <td>Female</td>
-
-                    <td>27 Aug 2026</td>
-
-                    <td>
-                      <span className="patient-active">Active</span>
-                    </td>
-                  </tr>
+                  {loadingDashboard ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        Loading patients...
+                      </td>
+                    </tr>
+                  ) : recentPatients.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4">
+                        No patients assigned yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentPatients.map((patient) => (
+                      <tr key={patient._id}>
+                        <td>
+                          <strong>{patient.name}</strong>
+                        </td>
+                        <td>{patient.age ?? "—"}</td>
+                        <td>{patient.gender || "—"}</td>
+                        <td>
+                          {patient.lastVisit
+                            ? new Date(
+                                `${patient.lastVisit}T00:00:00`,
+                              ).toLocaleDateString("en-IN")
+                            : "—"}
+                        </td>
+                        <td>
+                          <span className="patient-active">Assigned</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

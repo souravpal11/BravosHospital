@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../config/api";
+import "./AdminRegisterDoctor.css";
 
 const AdminRegisterDoctor = () => {
   const [formData, setFormData] = useState({
@@ -12,11 +13,12 @@ const AdminRegisterDoctor = () => {
     experience: "",
     fees: "",
     gender: "",
-    image: "",
+    image: null,
   });
 
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState("");
 
   const handleChange = (e) => {
     setFormData({
@@ -39,21 +41,11 @@ const AdminRegisterDoctor = () => {
     try {
       setLoading(true);
 
-      const response = await api.post(
-        "/api/doctors/register",
-        {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          specialization: formData.specialization,
-          qualification: formData.qualification,
-          experience: formData.experience,
-          gender: formData.gender,
-          password: formData.password,
-          fees: formData.fees,
-          image: formData.image,
-        },
-      );
+      const payload = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "") payload.append(key, value);
+      });
+      const response = await api.post("/api/doctors/register", payload);
 
       console.log(response.data);
 
@@ -70,7 +62,7 @@ const AdminRegisterDoctor = () => {
         gender: "",
         password: "",
         confirmPassword: "",
-        image: "",
+        image: null,
         fees:"",
       });
     } catch (error) {
@@ -343,26 +335,17 @@ const AdminRegisterDoctor = () => {
                       </div>
                     </div>
 
-                    {/* IMAGE */}
-                    <div className="col-12 mb-3">
-                      <label className="form-label">
-                        Doctor Profile Image URL
-                        <span className="text-muted ms-1">(Optional)</span>
-                      </label>
-
-                      <div className="input-group">
-                        <span className="input-group-text">
-                          <i className="bi bi-image"></i>
-                        </span>
-
-                        <input
-                          type="url"
-                          name="image"
-                          className="form-control"
-                          placeholder="https://example.com/doctor.jpg"
-                          value={formData.image}
-                          onChange={handleChange}
-                        />
+                    {/* DOCTOR PHOTO UPLOAD */}
+                    <div className="col-12 mb-4">
+                      <label className="form-label">Doctor Profile Photo (Optional)</label>
+                      <div className="doctor-photo-upload">
+                        <div className="doctor-photo-preview">
+                          {photoPreview ? <img src={photoPreview} alt="Doctor preview" /> : <i className="bi bi-person-bounding-box"></i>}
+                        </div>
+                        <div className="flex-grow-1">
+                          <input type="file" name="image" className="form-control" accept="image/png,image/jpeg,image/webp" onChange={handleChange} />
+                          <small className="text-muted">Choose a JPG, PNG or WEBP image from your device (maximum 5 MB).</small>
+                        </div>
                       </div>
                     </div>
 

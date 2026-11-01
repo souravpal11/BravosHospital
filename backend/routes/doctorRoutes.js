@@ -1,4 +1,5 @@
 const express = require("express");
+const doctorPhotoUpload = require("../middleware/doctorPhotoUpload");
 
 const {
   registerDoctor,
@@ -14,7 +15,7 @@ const router = express.Router();
 router.get("/", getDoctors);
 
 // Register doctor
-router.post("/register", registerDoctor);
+router.post("/register", doctorPhotoUpload.single("image"), registerDoctor);
 
 // Doctor login
 router.post("/login", loginDoctor);

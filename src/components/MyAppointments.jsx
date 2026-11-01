@@ -7,7 +7,7 @@
 //   const [appointments, setAppointments] = useState([]);
 //   const [loading, setLoading] = useState(true);
 
-//   const token = localStorage.getItem("token");
+//   const token = sessionStorage.getItem("token");
 
 //   useEffect(() => {
 //     const fetchAppointments = async () => {
@@ -306,7 +306,7 @@ const MyAppointments = () => {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
 
   const fetchAppointments = useCallback(async () => {
     if (!token) {

@@ -1,14 +1,38 @@
 import React, { useEffect, useState } from "react";
-import {Link} from "react-router-dom";
+import { Link } from "react-router-dom";
 import api from "../config/api";
+import imageUrl from "../utils/imageUrl";
+import Logo from "../utils/Logo.png";
 
 const PatientDashboard = () => {
-  const patient = JSON.parse(localStorage.getItem("patient"));
+  const [patient, setPatient] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("patient") || "{}");
+    } catch {
+      return {};
+    }
+  });
 
   const [upcomingAppointment, setUpcomingAppointment] = useState(null);
   const [loadingAppointment, setLoadingAppointment] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
 
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
+
+  useEffect(() => {
+    if (!token) return;
+    api
+      .get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => {
+        if (data.profile) {
+          setPatient(data.profile);
+          sessionStorage.setItem("patient", JSON.stringify(data.profile));
+        }
+      })
+      .catch((error) =>
+        console.error("Error fetching patient profile photo:", error),
+      );
+  }, [token]);
 
   useEffect(() => {
     const fetchUpcomingAppointment = async () => {
@@ -18,16 +42,12 @@ const PatientDashboard = () => {
           return;
         }
 
-        const response = await api.get(
-          "/api/appointments/my-upcoming",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
+        const response = await api.get("/api/dashboard/patient", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-        setUpcomingAppointment(response.data.appointment || null);
+        setDashboardData(response.data);
+        setUpcomingAppointment(response.data.upcomingAppointment || null);
       } catch (error) {
         console.error(
           "Error fetching upcoming appointment:",
@@ -42,14 +62,15 @@ const PatientDashboard = () => {
     fetchUpcomingAppointment();
   }, [token]);
 
-  const displayString = new Date().toLocaleDateString('en-IN', {
-    weekday: 'long',  // "Tuesday"
-    day: 'numeric',   // "29"
-    month: 'long',    // "September"
-    year: 'numeric'   // "2026"
+  const displayString = new Date().toLocaleDateString("en-IN", {
+    weekday: "long", // "Tuesday"
+    day: "numeric", // "29"
+    month: "long", // "September"
+    year: "numeric", // "2026"
   });
 
   const patientName = patient?.name || "Patient";
+  const patientStats = dashboardData?.statistics || {};
   return (
     <div className="patient-dashboard">
       {/* ================= SIDEBAR ================= */}
@@ -57,7 +78,12 @@ const PatientDashboard = () => {
       <aside className="patient-sidebar">
         <div className="dashboard-logo">
           <div className="dashboard-logo-icon">
-            <i className="bi bi-heart-pulse-fill"></i>
+            <img
+              src={Logo}
+              alt="Bravos Hospital Logo"
+              className="logo-image"
+              style={{ width: "45px", height: "45px" , borderRadius: "12px"}}
+            />
           </div>
 
           <div>
@@ -84,7 +110,7 @@ const PatientDashboard = () => {
 
           <Link to="/medical-records" className="sidebar-link">
             <i className="bi bi-file-earmark-medical"></i>
-            <span>Medical Records</span>
+            <span>Medical Reports</span>
           </Link>
 
           <Link to="/prescriptions" className="sidebar-link">
@@ -99,7 +125,15 @@ const PatientDashboard = () => {
         </div>
 
         <div className="sidebar-bottom">
-          <Link to="/" className="sidebar-link">
+          <Link
+            to="/"
+            className="sidebar-link"
+            onClick={() => {
+              ["token", "role", "patient", "doctor", "admin"].forEach((key) =>
+                sessionStorage.removeItem(key)
+              );
+            }}
+          >
             <i className="bi bi-box-arrow-left"></i>
             <span>Logout</span>
           </Link>
@@ -127,7 +161,16 @@ const PatientDashboard = () => {
             </button>
 
             <div className="patient-profile">
-              <div className="profile-avatar">{patientName.charAt(0)}</div>
+              <div className="profile-avatar">
+                {patient?.image ? (
+                  <img
+                    src={imageUrl(patient.image)}
+                    alt={patient.name || "Patient"}
+                  />
+                ) : (
+                  patientName.charAt(0).toUpperCase()
+                )}
+              </div>
 
               <div className="profile-name">
                 <h6>{patientName}</h6>
@@ -149,7 +192,7 @@ const PatientDashboard = () => {
             <h1>Your Health, Our Priority.</h1>
 
             <p>
-              Manage your appointments, access your medical records, and stay
+              Manage your appointments, access your medical reports, and stay
               connected with your healthcare providers.
             </p>
 
@@ -188,7 +231,11 @@ const PatientDashboard = () => {
 
                 <div>
                   <span>Appointments</span>
-                  <h3>03</h3>
+                  <h3>
+                    {loadingAppointment
+                      ? "…"
+                      : (patientStats.upcomingAppointments ?? 0)}
+                  </h3>
                   <small>Upcoming visits</small>
                 </div>
               </div>
@@ -201,9 +248,9 @@ const PatientDashboard = () => {
                 </div>
 
                 <div>
-                  <span>Medical Records</span>
-                  <h3>12</h3>
-                  <small>Available records</small>
+                  <span>Medical Reports</span>
+                  <h3>—</h3>
+                  <small>Records module not configured</small>
                 </div>
               </div>
             </div>
@@ -216,8 +263,8 @@ const PatientDashboard = () => {
 
                 <div>
                   <span>Prescriptions</span>
-                  <h3>05</h3>
-                  <small>Active prescriptions</small>
+                  <h3>—</h3>
+                  <small>Prescriptions module not configured</small>
                 </div>
               </div>
             </div>
@@ -226,7 +273,11 @@ const PatientDashboard = () => {
               <div className="health-card">
                 <div>
                   <span>Your Doctors</span>
-                  <h3>04</h3>
+                  <h3>
+                    {loadingAppointment
+                      ? "…"
+                      : (patientStats.totalDoctors ?? 0)}
+                  </h3>
                   <small>Healthcare specialists</small>
                 </div>
               </div>
@@ -378,7 +429,7 @@ const PatientDashboard = () => {
                   </div>
 
                   <div>
-                    <h6>Medical Records</h6>
+                    <h6>Medical Reports</h6>
                     <p>View your health history</p>
                   </div>
 
@@ -412,44 +463,31 @@ const PatientDashboard = () => {
               </div>
 
               <div className="activity-list">
-                <div className="activity-item">
-                  <div className="activity-icon">
-                    <i className="bi bi-file-earmark-plus"></i>
-                  </div>
-
-                  <div className="activity-content">
-                    <h6>Medical Record Added</h6>
-                    <p>Your blood test report is now available.</p>
-                  </div>
-
-                  <span>Today</span>
-                </div>
-
-                <div className="activity-item">
-                  <div className="activity-icon">
-                    <i className="bi bi-calendar-check"></i>
-                  </div>
-
-                  <div className="activity-content">
-                    <h6>Appointment Confirmed</h6>
-                    <p>Your appointment has been successfully confirmed.</p>
-                  </div>
-
-                  <span>Yesterday</span>
-                </div>
-
-                <div className="activity-item">
-                  <div className="activity-icon">
-                    <i className="bi bi-capsule"></i>
-                  </div>
-
-                  <div className="activity-content">
-                    <h6>Prescription Updated</h6>
-                    <p>Your doctor has updated your prescription.</p>
-                  </div>
-
-                  <span>Aug 20</span>
-                </div>
+                {loadingAppointment ? (
+                  <p className="text-muted">Loading recent activity...</p>
+                ) : (dashboardData?.recentActivity || []).length === 0 ? (
+                  <p className="text-muted">No recent activity yet.</p>
+                ) : (
+                  dashboardData.recentActivity.map((activity, index) => (
+                    <div
+                      className="activity-item"
+                      key={`${activity.type}-${index}`}
+                    >
+                      <div className="activity-icon">
+                        <i className="bi bi-calendar-check"></i>
+                      </div>
+                      <div className="activity-content">
+                        <h6>{activity.title}</h6>
+                        <p>{activity.description}</p>
+                      </div>
+                      <span>
+                        {activity.date
+                          ? new Date(activity.date).toLocaleDateString("en-IN")
+                          : ""}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

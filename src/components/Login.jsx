@@ -36,14 +36,19 @@ const Login = () => {
           },
         );
 
-        // Save JWT Token
-        localStorage.setItem("token", response.data.token);
+// Clear obsolete shared auth values from older app versions.
+        ["token", "role", "patient", "doctor", "admin"].forEach((key) =>
+          localStorage.removeItem(key)
+        );
+
+                // Save JWT Token
+        sessionStorage.setItem("token", response.data.token);
 
         // Save role
-        localStorage.setItem("role", "patient");
+        sessionStorage.setItem("role", "patient");
 
         // Save patient data
-        localStorage.setItem("patient", JSON.stringify(response.data.patient));
+        sessionStorage.setItem("patient", JSON.stringify(response.data.patient));
 
         setMessage("Patient login successful!");
         setMessageType("success");
@@ -63,14 +68,19 @@ const Login = () => {
           password,
         });
 
-        // Save JWT Token
-        localStorage.setItem("token", response.data.token);
+// Clear obsolete shared auth values from older app versions.
+        ["token", "role", "patient", "doctor", "admin"].forEach((key) =>
+          localStorage.removeItem(key)
+        );
+
+                // Save JWT Token
+        sessionStorage.setItem("token", response.data.token);
 
         // Save role
-        localStorage.setItem("role", "doctor");
+        sessionStorage.setItem("role", "doctor");
 
         // Save doctor data
-        localStorage.setItem("doctor", JSON.stringify(response.data.doctor));
+        sessionStorage.setItem("doctor", JSON.stringify(response.data.doctor));
 
         setMessage("Doctor login successful!");
         setMessageType("success");
@@ -85,14 +95,19 @@ const Login = () => {
           password,
         });
 
-        // Save token
-        localStorage.setItem("token", response.data.token);
+// Clear obsolete shared auth values from older app versions.
+        ["token", "role", "patient", "doctor", "admin"].forEach((key) =>
+          localStorage.removeItem(key)
+        );
+
+                // Save token
+        sessionStorage.setItem("token", response.data.token);
 
         // Save role
-        localStorage.setItem("role", "admin");
+        sessionStorage.setItem("role", "admin");
 
         // Save admin data
-        localStorage.setItem("admin", JSON.stringify(response.data.admin));
+        sessionStorage.setItem("admin", JSON.stringify(response.data.admin));
 
         setMessage("Admin login successful!");
         setMessageType("success");
